@@ -49,6 +49,20 @@ ListModel {
     }
 
     ListElement {
+        name: qsTr("Custom Ops")
+        url: "qrc:/Custom/qml/QGroundControl/AppSettings/CustomOpsSettings.qml"
+        iconUrl: "qrc:/InstrumentValueIcons/drone.svg"
+        pageVisible: function() { return true }
+    }
+
+    ListElement {
+        name: qsTr("Yarisma")
+        url: "qrc:/Custom/qml/QGroundControl/AppSettings/CompetitionSettings.qml"
+        iconUrl: "qrc:/InstrumentValueIcons/airplane.svg"
+        pageVisible: function() { return true }
+    }
+
+    ListElement {
         name: qsTr("ADSB Server")
         url: "qrc:/qml/QGroundControl/AppSettings/ADSBServerSettings.qml"
         iconUrl: "qrc:/InstrumentValueIcons/airplane.svg"
@@ -73,10 +87,10 @@ ListModel {
         name: qsTr("PX4 Log Transfer")
         url: "qrc:/qml/QGroundControl/AppSettings/PX4LogTransferSettings.qml"
         iconUrl: "qrc:/InstrumentValueIcons/inbox-download.svg"
-        pageVisible: function() { 
+        pageVisible: function() {
             var activeVehicle = QGroundControl.multiVehicleManager.activeVehicle
-            return QGroundControl.corePlugin.options.showPX4LogTransferOptions && 
-                        QGroundControl.px4ProFirmwareSupported && 
+            return QGroundControl.corePlugin.options.showPX4LogTransferOptions &&
+                        QGroundControl.px4ProFirmwareSupported &&
                         (activeVehicle ? activeVehicle.px4Firmware : true)
         }
     }
@@ -123,4 +137,3 @@ ListModel {
         pageVisible: function() { return ScreenTools.isDebug }
     }
 }
-

@@ -1,0 +1,90 @@
+{
+    "version":              1,
+    "fileType":             "FactMetaData",
+    "QGC.MetaData.Facts":
+[
+{
+    "name":         "serverIpAddress",
+    "shortDesc":    "Sunucu IP Adresi",
+    "longDesc":     "Yarisma sunucusunun IPv4/hostname adresi.",
+    "type":         "string",
+    "default":      "127.0.0.1"
+},
+{
+    "name":         "serverPort",
+    "shortDesc":    "Sunucu Port",
+    "longDesc":     "Yarisma sunucusu TCP portu.",
+    "type":         "uint32",
+    "min":          1,
+    "max":          65535,
+    "default":      5000
+},
+{
+    "name":         "useAuthentication",
+    "shortDesc":    "Kimlik Dogrulama",
+    "longDesc":     "Baglanti acildiginda kullanici adi/sifre ile kimlik dogrulama paketi gonderir.",
+    "type":         "bool",
+    "default":      false
+},
+{
+    "name":         "serverUsername",
+    "shortDesc":    "Kullanici Adi",
+    "longDesc":     "Yarisma sunucusu kimlik dogrulama kullanici adi.",
+    "type":         "string",
+    "default":      ""
+},
+{
+    "name":         "serverPassword",
+    "shortDesc":    "Sifre",
+    "longDesc":     "Yarisma sunucusu kimlik dogrulama sifresi.",
+    "type":         "string",
+    "default":      ""
+},
+{
+    "name":         "autoReconnect",
+    "shortDesc":    "Otomatik Yeniden Baglan",
+    "longDesc":     "Baglanti koparsa istemci otomatik yeniden baglansin.",
+    "type":         "bool",
+    "default":      true
+},
+{
+    "name":         "reconnectIntervalMs",
+    "shortDesc":    "Yeniden Baglanma Araligi (ms)",
+    "longDesc":     "Yeniden baglanma denemeleri arasindaki sure.",
+    "type":         "uint32",
+    "min":          250,
+    "max":          60000,
+    "default":      1000
+},
+{
+    "name":         "systemId",
+    "shortDesc":    "Takim/Sistem ID",
+    "longDesc":     "Sunucuya raporlanan takim veya sistem kimligi.",
+    "type":         "uint32",
+    "min":          1,
+    "max":          255,
+    "default":      1
+},
+{
+    "name":         "competitionNumber",
+    "shortDesc":    "Musabaka Numarasi",
+    "longDesc":     "TEKNOFEST musabaka numarasi.",
+    "type":         "string",
+    "default":      ""
+},
+{
+    "name":         "teamName",
+    "shortDesc":    "Takim Adi",
+    "longDesc":     "Kayit dosya adlarinda kullanilacak takim adi.",
+    "type":         "string",
+    "default":      ""
+},
+{
+    "name":         "videoSaveDirectory",
+    "shortDesc":    "Video Kayit Klasoru",
+    "longDesc":     "Yarisma video kayitlarinin kaydedilecegi klasor.",
+    "type":         "string",
+    "default":      ""
+}
+]
+}

@@ -349,6 +349,7 @@ ApplicationWindow {
                             }
                         }
 
+
                         SubMenuButton {
                             id:                 analyzeButton
                             height:             toolSelectDialog._toolButtonHeight
@@ -393,7 +394,7 @@ ApplicationWindow {
                                 }
                             }
                         }
-
+                        
                         SubMenuButton {
                             id:                 closeButton
                             height:             toolSelectDialog._toolButtonHeight

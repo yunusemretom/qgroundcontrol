@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include <QtCore/QMetaObject>
 #include <QtCore/QTranslator>
 #include <QtQml/QQmlAbstractUrlInterceptor>
 
@@ -20,6 +21,10 @@
 class CustomOptions;
 class CustomPlugin;
 class CustomSettings;
+class CompetitionSettings;
+class CompetitionServerClient;
+class Fact;
+class Vehicle;
 class QQmlApplicationEngine;
 
 Q_DECLARE_LOGGING_CATEGORY(CustomLog)
@@ -56,6 +61,8 @@ private:
 class CustomPlugin : public QGCCorePlugin
 {
     Q_OBJECT
+    Q_PROPERTY(QObject* competitionSettings READ competitionSettings CONSTANT)
+    Q_PROPERTY(QObject* competitionServerClient READ competitionServerClient CONSTANT)
 public:
     explicit CustomPlugin(QObject *parent = nullptr);
     ~CustomPlugin();
@@ -73,17 +80,31 @@ public:
     void                    paletteOverride                 (const QString &colorName, QGCPalette::PaletteColorInfo_t& colorInfo) final;
     QQmlApplicationEngine*  createQmlApplicationEngine      (QObject* parent) final;
 
+    QObject*                competitionSettings             (void) const;
+    QObject*                competitionServerClient         (void) const;
+
 private slots:
     void _advancedChanged(bool advanced);
+    void _competitionServerEndpointChanged();
+    void _activeVehicleChanged(Vehicle* activeVehicle);
+    void _updateCompetitionOwnTelemetry();
 
 private:
     void _addSettingsEntry(const QString& title, const char* qmlFile, const char* iconFile = nullptr);
+    void _setTelemetryVehicle(Vehicle* vehicle);
+    void _disconnectTelemetryBindings();
 
 private:
     CustomOptions*  _options = nullptr;
     QQmlApplicationEngine *_qmlEngine = nullptr;
     class CustomOverrideInterceptor *_selector = nullptr;
     QVariantList    _customSettingsList; // Not to be mixed up with QGCCorePlugin implementation
+    CompetitionSettings* _competitionSettings = nullptr;
+    CompetitionServerClient* _competitionServerClient = nullptr;
+    Vehicle* _telemetryVehicle = nullptr;
+    Fact* _telemetryHeadingFact = nullptr;
+    Fact* _telemetryAltitudeRelativeFact = nullptr;
+    QList<QMetaObject::Connection> _telemetryConnections;
 };
 
 /*===========================================================================*/

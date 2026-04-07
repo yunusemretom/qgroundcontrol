@@ -11,6 +11,7 @@ import QtQml.Models
 
 import QGroundControl
 import QGroundControl.Controls
+import QGroundControl.FlightDisplay 1.0
 
 ToolStripActionList {
     id: _root

@@ -19,9 +19,18 @@
         <file alias="PaperPlane.svg">res/Images/CustomVehicleIcon.svg</file>
     </qresource>
     <qresource prefix="/Custom/qml">
+        <file alias="QGroundControl/Controls/AppSettings.qml">src/Controls/AppSettings.qml</file>
+        <file alias="QGroundControl/AppSettings/CompetitionSettings.qml">src/AppSettings/CompetitionSettings.qml</file>
+        <file alias="QGroundControl/AppSettings/CustomOpsSettings.qml">src/AppSettings/CustomOpsSettings.qml</file>
+        <file alias="QGroundControl/AppSettings/CustomRemoteConnectionSettings.qml">src/AppSettings/CustomRemoteConnectionSettings.qml</file>
+        <file alias="QGroundControl/AppSettings/SettingsPagesModel.qml">src/AppSettings/SettingsPagesModel.qml</file>
         <file alias="QGroundControl/FlightDisplay/CustomGuidedActionsController.qml">src/CustomGuidedActionsController.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">src/FlyViewCustomLayer.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewToolStripActionList.qml">src/FlyViewToolStripActionList.qml</file>
+        <file alias="QGroundControl/Toolbar/CompetitionStatusIndicator.qml">src/Toolbar/CompetitionStatusIndicator.qml</file>
+    </qresource>
+    <qresource prefix="/json">
+        <file alias="Competition.SettingsGroup.json">src/AppSettings/CompetitionSettings.json</file>
     </qresource>
     <qresource prefix="/Custom/res">
         <file alias="QGCLogoFull.svg">res/QGCLogoFull.svg</file>

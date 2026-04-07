@@ -16,10 +16,17 @@
 #include "QGCMAVLink.h"
 #include "AppSettings.h"
 #include "BrandImageSettings.h"
+#include "CompetitionServerClient.h"
+#include "FactGroup.h"
+#include "AppSettings/CompetitionSettings.h"
+#include "Fact.h"
+#include "MultiVehicleManager.h"
+#include "Vehicle.h"
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
 #include <QtCore/QApplicationStatic>
 #endif
+#include <QtCore/QList>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlFile>
 
@@ -78,7 +85,7 @@ CustomPlugin::CustomPlugin(QObject *parent)
     : QGCCorePlugin(parent)
     , _options(new CustomOptions(this, this))
 {
-    _showAdvancedUI = false;
+    _showAdvancedUI = true;
     connect(this, &QGCCorePlugin::showAdvancedUIChanged, this, &CustomPlugin::_advancedChanged);
 }
 
@@ -94,11 +101,76 @@ QGCCorePlugin *CustomPlugin::instance()
 
 void CustomPlugin::init()
 {
+    _competitionSettings = new CompetitionSettings(this);
+    _competitionServerClient = new CompetitionServerClient(this);
 
+    connect(_competitionSettings->serverIpAddress(), &Fact::rawValueChanged,
+            this, &CustomPlugin::_competitionServerEndpointChanged);
+    connect(_competitionSettings->serverPort(), &Fact::rawValueChanged,
+            this, &CustomPlugin::_competitionServerEndpointChanged);
+
+    connect(_competitionSettings->useAuthentication(), &Fact::rawValueChanged,
+            this,
+            [this](const QVariant& value) {
+                if (_competitionServerClient) {
+                    _competitionServerClient->setAuthEnabled(value.toBool());
+                }
+            });
+    connect(_competitionSettings->serverUsername(), &Fact::rawValueChanged,
+            this,
+            [this](const QVariant& value) {
+                if (_competitionServerClient) {
+                    _competitionServerClient->setUsername(value.toString());
+                }
+            });
+    connect(_competitionSettings->serverPassword(), &Fact::rawValueChanged,
+            this,
+            [this](const QVariant& value) {
+                if (_competitionServerClient) {
+                    _competitionServerClient->setPassword(value.toString());
+                }
+            });
+    connect(_competitionSettings->autoReconnect(), &Fact::rawValueChanged,
+            this,
+            [this](const QVariant& value) {
+                if (_competitionServerClient) {
+                    _competitionServerClient->setAutoReconnect(value.toBool());
+                }
+            });
+    connect(_competitionSettings->reconnectIntervalMs(), &Fact::rawValueChanged,
+            this,
+            [this](const QVariant& value) {
+                if (_competitionServerClient) {
+                    _competitionServerClient->setReconnectIntervalMs(value.toInt());
+                }
+            });
+
+    connect(_competitionSettings->systemId(), &Fact::rawValueChanged,
+            this,
+            [this](const QVariant& value) {
+                if (_competitionServerClient) {
+                    _competitionServerClient->setSysId(value.toInt());
+                }
+            });
+
+    _competitionServerClient->setAuthEnabled(_competitionSettings->useAuthentication()->rawValue().toBool());
+    _competitionServerClient->setUsername(_competitionSettings->serverUsername()->rawValue().toString());
+    _competitionServerClient->setPassword(_competitionSettings->serverPassword()->rawValue().toString());
+    _competitionServerClient->setAutoReconnect(_competitionSettings->autoReconnect()->rawValue().toBool());
+    _competitionServerClient->setReconnectIntervalMs(_competitionSettings->reconnectIntervalMs()->rawValue().toInt());
+    _competitionServerClient->setSysId(_competitionSettings->systemId()->rawValue().toInt());
+    _competitionServerEndpointChanged();
+
+    MultiVehicleManager* const multiVehicleManager = MultiVehicleManager::instance();
+    connect(multiVehicleManager, &MultiVehicleManager::activeVehicleChanged,
+            this, &CustomPlugin::_activeVehicleChanged);
+    _activeVehicleChanged(multiVehicleManager->activeVehicle());
 }
 
 void CustomPlugin::cleanup()
 {
+    _disconnectTelemetryBindings();
+
     if (_qmlEngine) {
         _qmlEngine->removeUrlInterceptor(_selector);
     }
@@ -110,6 +182,143 @@ void CustomPlugin::_advancedChanged(bool changed)
 {
     // Firmware Upgrade page is only show in Advanced mode
     emit _options->showFirmwareUpgradeChanged(changed);
+}
+
+void CustomPlugin::_competitionServerEndpointChanged()
+{
+    if (!_competitionSettings || !_competitionServerClient) {
+        return;
+    }
+
+    const QString host = _competitionSettings->serverIpAddress()->rawValue().toString().trimmed();
+    const quint16 port = static_cast<quint16>(_competitionSettings->serverPort()->rawValue().toUInt());
+
+    const bool endpointChanged = (_competitionServerClient->host() != host) || (_competitionServerClient->port() != port);
+
+    _competitionServerClient->setHost(host);
+    _competitionServerClient->setPort(port);
+
+    if (host.isEmpty() || (port == 0)) {
+        _competitionServerClient->disconnectFromServer();
+        return;
+    }
+
+    if (endpointChanged || !_competitionServerClient->connected() ||
+        (_competitionServerClient->connectionState() == CompetitionServerClient::ConnectionState::Error)) {
+        _competitionServerClient->connectToServer();
+    }
+}
+
+void CustomPlugin::_activeVehicleChanged(Vehicle* activeVehicle)
+{
+    _setTelemetryVehicle(activeVehicle);
+}
+
+void CustomPlugin::_disconnectTelemetryBindings()
+{
+    for (const QMetaObject::Connection& connection : _telemetryConnections) {
+        disconnect(connection);
+    }
+    _telemetryConnections.clear();
+
+    _telemetryVehicle = nullptr;
+    _telemetryHeadingFact = nullptr;
+    _telemetryAltitudeRelativeFact = nullptr;
+}
+
+void CustomPlugin::_setTelemetryVehicle(Vehicle* vehicle)
+{
+    if (_telemetryVehicle == vehicle) {
+        _updateCompetitionOwnTelemetry();
+        return;
+    }
+
+    _disconnectTelemetryBindings();
+    _telemetryVehicle = vehicle;
+
+    if (!_telemetryVehicle) {
+        _updateCompetitionOwnTelemetry();
+        return;
+    }
+
+    _telemetryConnections.append(connect(_telemetryVehicle, &QObject::destroyed,
+                                         this,
+                                         [this]() {
+                                             _disconnectTelemetryBindings();
+                                             _updateCompetitionOwnTelemetry();
+                                         }));
+    _telemetryConnections.append(connect(_telemetryVehicle, &Vehicle::coordinateChanged,
+                                         this, &CustomPlugin::_updateCompetitionOwnTelemetry));
+    _telemetryConnections.append(connect(_telemetryVehicle, &Vehicle::flightModeChanged,
+                                         this, &CustomPlugin::_updateCompetitionOwnTelemetry));
+
+    FactGroup* const vehicleFactGroup = _telemetryVehicle->vehicleFactGroup();
+    if (vehicleFactGroup) {
+        if (vehicleFactGroup->factExists(QStringLiteral("heading"))) {
+            _telemetryHeadingFact = vehicleFactGroup->getFact(QStringLiteral("heading"));
+        }
+        if (vehicleFactGroup->factExists(QStringLiteral("altitudeRelative"))) {
+            _telemetryAltitudeRelativeFact = vehicleFactGroup->getFact(QStringLiteral("altitudeRelative"));
+        }
+    }
+
+    if (_telemetryHeadingFact) {
+        _telemetryConnections.append(connect(_telemetryHeadingFact, &Fact::rawValueChanged,
+                                             this,
+                                             [this](const QVariant&) {
+                                                 _updateCompetitionOwnTelemetry();
+                                             }));
+    }
+
+    if (_telemetryAltitudeRelativeFact) {
+        _telemetryConnections.append(connect(_telemetryAltitudeRelativeFact, &Fact::rawValueChanged,
+                                             this,
+                                             [this](const QVariant&) {
+                                                 _updateCompetitionOwnTelemetry();
+                                             }));
+    }
+
+    _updateCompetitionOwnTelemetry();
+}
+
+void CustomPlugin::_updateCompetitionOwnTelemetry()
+{
+    if (!_competitionServerClient) {
+        return;
+    }
+
+    if (!_telemetryVehicle) {
+        _competitionServerClient->setOwnLat(qQNaN());
+        _competitionServerClient->setOwnLon(qQNaN());
+        _competitionServerClient->setOwnAlt(qQNaN());
+        _competitionServerClient->setOwnHeading(qQNaN());
+        _competitionServerClient->setOwnFlightMode(QString());
+        return;
+    }
+
+    const QGeoCoordinate coordinate = _telemetryVehicle->coordinate();
+
+    const double lat = coordinate.isValid() ? coordinate.latitude() : qQNaN();
+    const double lon = coordinate.isValid() ? coordinate.longitude() : qQNaN();
+
+    double altitude = qQNaN();
+    if (_telemetryAltitudeRelativeFact) {
+        altitude = _telemetryAltitudeRelativeFact->rawValue().toDouble();
+    }
+    if (!qIsFinite(altitude) && coordinate.isValid()) {
+        altitude = coordinate.altitude();
+    }
+
+    double heading = qQNaN();
+    if (_telemetryHeadingFact) {
+        heading = _telemetryHeadingFact->rawValue().toDouble();
+    }
+
+    _competitionServerClient->setOwnLat(lat);
+    _competitionServerClient->setOwnLon(lon);
+    _competitionServerClient->setOwnAlt(altitude);
+    _competitionServerClient->setOwnHeading(heading);
+    _competitionServerClient->setOwnFlightMode(_telemetryVehicle->flightMode());
 }
 
 void CustomPlugin::_addSettingsEntry(const QString& title, const char* qmlFile, const char* iconFile)
@@ -126,6 +335,16 @@ void CustomPlugin::_addSettingsEntry(const QString& title, const char* qmlFile, 
 QGCOptions* CustomPlugin::options()
 {
     return _options;
+}
+
+QObject* CustomPlugin::competitionSettings(void) const
+{
+    return _competitionSettings;
+}
+
+QObject* CustomPlugin::competitionServerClient(void) const
+{
+    return _competitionServerClient;
 }
 
 QString CustomPlugin::brandImageIndoor(void) const

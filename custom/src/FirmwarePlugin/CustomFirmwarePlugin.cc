@@ -21,7 +21,11 @@ CustomFirmwarePlugin::CustomFirmwarePlugin()
 {
     for (auto &mode: _flightModeList){
         //-- Narrow the flight mode options to only these
-        if ((mode.mode_name != pauseFlightMode()) && (mode.mode_name != rtlFlightMode()) && (mode.mode_name != missionFlightMode())) {
+        if ((mode.mode_name != pauseFlightMode()) &&
+            (mode.mode_name != rtlFlightMode()) &&
+            (mode.mode_name != missionFlightMode()) &&
+            (mode.mode_name != QStringLiteral("Position")) &&
+            (mode.mode_name != landFlightMode())) {
             // No other flight modes can be set
             mode.canBeSet = false;
         }
@@ -42,6 +46,9 @@ const QVariantList& CustomFirmwarePlugin::toolIndicators(const Vehicle* vehicle)
         _toolIndicatorList = FirmwarePlugin::toolIndicators(vehicle);
         // Then specifically remove the RC RSSI indicator.
         _toolIndicatorList.removeOne(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/QGroundControl/Toolbar/RCRSSIIndicator.qml")));
+
+        // Add competition status indicator to toolbar.
+        _toolIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/QGroundControl/Toolbar/CompetitionStatusIndicator.qml")));
     }
     return _toolIndicatorList;
 }
@@ -116,6 +123,8 @@ void CustomFirmwarePlugin::updateAvailableFlightModes(FlightModeList &modeList)
 
         // Update CanBeSet
         switch (cMode){
+        case PX4CustomMode::POSCTL_POSCTL:
+        case PX4CustomMode::AUTO_LAND:
         case PX4CustomMode::AUTO_LOITER:
         case PX4CustomMode::AUTO_RTL:
         case PX4CustomMode::AUTO_MISSION:
@@ -131,8 +140,6 @@ void CustomFirmwarePlugin::updateAvailableFlightModes(FlightModeList &modeList)
         case PX4CustomMode::ACRO              :
         case PX4CustomMode::RATTITUDE         :
         case PX4CustomMode::ALTCTL            :
-        case PX4CustomMode::POSCTL_POSCTL     :
-        case PX4CustomMode::AUTO_LAND         :
         case PX4CustomMode::AUTO_READY        :
         case PX4CustomMode::AUTO_RTGS         :
         case PX4CustomMode::AUTO_TAKEOFF      :
