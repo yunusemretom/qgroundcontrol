@@ -11,9 +11,11 @@
 #include "CompetitionServerClient.h"
 
 #include <QtCore/QJsonArray>
+#include <QtCore/QDateTime>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QJsonValue>
+#include <QtCore/QStringList>
 #include <QtCore/QVariantMap>
 #include <QtNetwork/QTcpSocket>
 
@@ -107,6 +109,28 @@ void CompetitionServerClient::setPassword(const QString& password)
     if (connected() && _authEnabled) {
         _sendAuthPacket();
     }
+}
+
+void CompetitionServerClient::setCompetitionNumber(const QString& competitionNumber)
+{
+    const QString trimmed = competitionNumber.trimmed();
+    if (_competitionNumber == trimmed) {
+        return;
+    }
+
+    _competitionNumber = trimmed;
+    emit competitionNumberChanged();
+}
+
+void CompetitionServerClient::setTeamName(const QString& teamName)
+{
+    const QString trimmed = teamName.trimmed();
+    if (_teamName == trimmed) {
+        return;
+    }
+
+    _teamName = trimmed;
+    emit teamNameChanged();
 }
 
 void CompetitionServerClient::setAutoReconnect(bool enabled)
@@ -294,6 +318,7 @@ void CompetitionServerClient::_onSocketConnected()
     _manualDisconnectRequested = false;
     _setConnectionState(ConnectionState::Connected);
     _setLastErrorString(QString());
+    _sendHelloPacket();
     _sendAuthPacket();
     _txTimer.start();
     emit statusTextChanged(QStringLiteral("Connected"));
@@ -368,9 +393,23 @@ void CompetitionServerClient::_sendTelemetryTick()
         return;
     }
 
-    const QJsonObject obj = _buildTelemetryObject();
-    const QByteArray line = QJsonDocument(obj).toJson(QJsonDocument::Compact) + '\n';
-    _socket->write(line);
+    _sendCommandPayloadsIfAny();
+
+    const QJsonObject telemetryObj = _buildTelemetryObject();
+
+    QJsonObject packet;
+    packet.insert(QStringLiteral("type"), QStringLiteral("telemetry"));
+    packet.insert(QStringLiteral("timestampMs"), QDateTime::currentDateTimeUtc().toMSecsSinceEpoch());
+    packet.insert(QStringLiteral("telemetry"), telemetryObj);
+
+    // Keep flat fields for backward-compatibility with simple receivers.
+    for (auto it = telemetryObj.begin(); it != telemetryObj.end(); ++it) {
+        if (!packet.contains(it.key())) {
+            packet.insert(it.key(), it.value());
+        }
+    }
+
+    _sendJsonObject(packet);
 }
 
 void CompetitionServerClient::_setConnectionState(ConnectionState state)
@@ -394,9 +433,47 @@ void CompetitionServerClient::_setLastErrorString(const QString& s)
     emit connectionStatusChanged(_connectionState, _lastErrorString);
 }
 
+bool CompetitionServerClient::_sendJsonObject(const QJsonObject& obj, const QString& statusText)
+{
+    if (!connected() || !_socket) {
+        return false;
+    }
+
+    const QByteArray line = QJsonDocument(obj).toJson(QJsonDocument::Compact) + '\n';
+    if (_socket->write(line) < 0) {
+        _setLastErrorString(_socket->errorString());
+        _setConnectionState(ConnectionState::Error);
+        return false;
+    }
+
+    if (!statusText.isEmpty()) {
+        emit statusTextChanged(statusText);
+    }
+
+    return true;
+}
+
+void CompetitionServerClient::_sendHelloPacket()
+{
+    QJsonObject helloObj;
+    helloObj.insert(QStringLiteral("type"), QStringLiteral("hello"));
+    helloObj.insert(QStringLiteral("timestampMs"), QDateTime::currentDateTimeUtc().toMSecsSinceEpoch());
+    helloObj.insert(QStringLiteral("sysId"), _sysId);
+
+    if (!_competitionNumber.isEmpty()) {
+        helloObj.insert(QStringLiteral("competitionNumber"), _competitionNumber);
+        helloObj.insert(QStringLiteral("teamNumber"), _competitionNumber);
+    }
+    if (!_teamName.isEmpty()) {
+        helloObj.insert(QStringLiteral("teamName"), _teamName);
+    }
+
+    _sendJsonObject(helloObj, QStringLiteral("Hello payload sent"));
+}
+
 void CompetitionServerClient::_sendAuthPacket()
 {
-    if (!_authEnabled || !connected() || !_socket) {
+    if (!_authEnabled) {
         return;
     }
 
@@ -413,9 +490,50 @@ void CompetitionServerClient::_sendAuthPacket()
     authObj.insert(QStringLiteral("pass"), _password);
     authObj.insert(QStringLiteral("sysId"), _sysId);
 
-    const QByteArray line = QJsonDocument(authObj).toJson(QJsonDocument::Compact) + '\n';
-    _socket->write(line);
-    emit statusTextChanged(QStringLiteral("Authentication payload sent"));
+    if (!_competitionNumber.isEmpty()) {
+        authObj.insert(QStringLiteral("competitionNumber"), _competitionNumber);
+        authObj.insert(QStringLiteral("teamNumber"), _competitionNumber);
+    }
+    if (!_teamName.isEmpty()) {
+        authObj.insert(QStringLiteral("teamName"), _teamName);
+    }
+
+    _sendJsonObject(authObj, QStringLiteral("Authentication payload sent"));
+}
+
+void CompetitionServerClient::_sendCommandPayloadsIfAny()
+{
+    if (_hasLockPayload) {
+        QJsonObject lockObj;
+        lockObj.insert(QStringLiteral("type"), QStringLiteral("lockCommand"));
+        lockObj.insert(QStringLiteral("command"), QStringLiteral("lock"));
+        lockObj.insert(QStringLiteral("timestampMs"), QDateTime::currentDateTimeUtc().toMSecsSinceEpoch());
+        lockObj.insert(QStringLiteral("sysId"), _sysId);
+        lockObj.insert(QStringLiteral("lockPayload"), QJsonObject::fromVariantMap(_lockPayload));
+        lockObj.insert(QStringLiteral("payload"), QJsonObject::fromVariantMap(_lockPayload));
+
+        if (_sendJsonObject(lockObj, QStringLiteral("Lock command sent"))) {
+            _hasLockPayload = false;
+            _lockPayload.clear();
+            emit lockPayloadActiveChanged();
+        }
+    }
+
+    if (_hasKamikazePayload) {
+        QJsonObject kamikazeObj;
+        kamikazeObj.insert(QStringLiteral("type"), QStringLiteral("kamikazeCommand"));
+        kamikazeObj.insert(QStringLiteral("command"), QStringLiteral("kamikaze"));
+        kamikazeObj.insert(QStringLiteral("timestampMs"), QDateTime::currentDateTimeUtc().toMSecsSinceEpoch());
+        kamikazeObj.insert(QStringLiteral("sysId"), _sysId);
+        kamikazeObj.insert(QStringLiteral("kamikazePayload"), QJsonObject::fromVariantMap(_kamikazePayload));
+        kamikazeObj.insert(QStringLiteral("payload"), QJsonObject::fromVariantMap(_kamikazePayload));
+
+        if (_sendJsonObject(kamikazeObj, QStringLiteral("Kamikaze command sent"))) {
+            _hasKamikazePayload = false;
+            _kamikazePayload.clear();
+            emit kamikazePayloadActiveChanged();
+        }
+    }
 }
 
 void CompetitionServerClient::_scheduleReconnect()
@@ -449,12 +567,72 @@ void CompetitionServerClient::_handleJsonLine(const QByteArray& line)
 
 void CompetitionServerClient::_handleMessageObject(const QJsonObject& obj)
 {
+    const QString messageType = obj.value(QStringLiteral("type")).toString().trimmed().toLower();
+    if (messageType == QStringLiteral("ping")) {
+        QJsonObject pong;
+        pong.insert(QStringLiteral("type"), QStringLiteral("pong"));
+        pong.insert(QStringLiteral("timestampMs"), QDateTime::currentDateTimeUtc().toMSecsSinceEpoch());
+        pong.insert(QStringLiteral("sysId"), _sysId);
+        _sendJsonObject(pong);
+        return;
+    }
+
+    const QJsonObject dataObj = obj.value(QStringLiteral("data")).isObject()
+        ? obj.value(QStringLiteral("data")).toObject()
+        : QJsonObject();
+
+    auto valueForKeys = [&](const QStringList& keys) -> QJsonValue {
+        for (const QString& key : keys) {
+            if (obj.contains(key)) {
+                return obj.value(key);
+            }
+            if (dataObj.contains(key)) {
+                return dataObj.value(key);
+            }
+        }
+        return QJsonValue();
+    };
+
+    auto valueToLongLong = [](const QJsonValue& value, qint64 fallback) -> qint64 {
+        if (value.isDouble()) {
+            return static_cast<qint64>(value.toDouble());
+        }
+        if (value.isString()) {
+            bool ok = false;
+            const qint64 parsed = value.toString().toLongLong(&ok);
+            if (ok) {
+                return parsed;
+            }
+        }
+        return fallback;
+    };
+
+    auto valueToInt = [](const QJsonValue& value, int fallback) -> int {
+        if (value.isDouble()) {
+            return static_cast<int>(value.toDouble());
+        }
+        if (value.isString()) {
+            bool ok = false;
+            const int parsed = value.toString().toInt(&ok);
+            if (ok) {
+                return parsed;
+            }
+        }
+        return fallback;
+    };
+
     bool anyListChanged = false;
     bool serverTimeUpdated = false;
     bool lockStatusUpdated = false;
 
-    if (obj.contains(QStringLiteral("rivalList")) && obj.value(QStringLiteral("rivalList")).isArray()) {
-        const QVariantList newList = _jsonArrayToVariantList(obj.value(QStringLiteral("rivalList")).toArray());
+    const QJsonValue rivalsValue = valueForKeys({
+        QStringLiteral("rivalList"),
+        QStringLiteral("rivals"),
+        QStringLiteral("enemyList"),
+        QStringLiteral("rakipIhaList")
+    });
+    if (rivalsValue.isArray()) {
+        const QVariantList newList = _jsonArrayToVariantList(rivalsValue.toArray());
         if (newList != _rivalList) {
             _rivalList = newList;
             emit rivalListChanged();
@@ -463,8 +641,13 @@ void CompetitionServerClient::_handleMessageObject(const QJsonObject& obj)
         }
     }
 
-    if (obj.contains(QStringLiteral("noFlyZones")) && obj.value(QStringLiteral("noFlyZones")).isArray()) {
-        const QVariantList newList = _jsonArrayToVariantList(obj.value(QStringLiteral("noFlyZones")).toArray());
+    const QJsonValue noFlyValue = valueForKeys({
+        QStringLiteral("noFlyZones"),
+        QStringLiteral("forbiddenZones"),
+        QStringLiteral("yasakliBolgeler")
+    });
+    if (noFlyValue.isArray()) {
+        const QVariantList newList = _jsonArrayToVariantList(noFlyValue.toArray());
         if (newList != _noFlyZones) {
             _noFlyZones = newList;
             emit noFlyZonesChanged();
@@ -473,8 +656,13 @@ void CompetitionServerClient::_handleMessageObject(const QJsonObject& obj)
         }
     }
 
-    if (obj.contains(QStringLiteral("boundaryPolygon")) && obj.value(QStringLiteral("boundaryPolygon")).isArray()) {
-        const QVariantList newList = _jsonArrayToVariantList(obj.value(QStringLiteral("boundaryPolygon")).toArray());
+    const QJsonValue boundaryValue = valueForKeys({
+        QStringLiteral("boundaryPolygon"),
+        QStringLiteral("boundary"),
+        QStringLiteral("sinirPoligonu")
+    });
+    if (boundaryValue.isArray()) {
+        const QVariantList newList = _jsonArrayToVariantList(boundaryValue.toArray());
         if (newList != _boundaryPolygon) {
             _boundaryPolygon = newList;
             emit boundaryPolygonChanged();
@@ -483,55 +671,90 @@ void CompetitionServerClient::_handleMessageObject(const QJsonObject& obj)
         }
     }
 
-    if (obj.contains(QStringLiteral("serverTimeMs"))) {
-        const QJsonValue v = obj.value(QStringLiteral("serverTimeMs"));
-        const qint64 newTime = v.isDouble() ? static_cast<qint64>(v.toDouble()) : v.toVariant().toLongLong();
-        if (newTime > 0) {
-            const bool wasValid = _serverTimeValid;
-            _serverTimeValid = true;
-            if (!wasValid) {
-                emit serverTimeValidChanged();
-            }
-
-            if (_serverTimeBaseMs != newTime) {
-                _serverTimeBaseMs = newTime;
-                emit serverTimeBaseMsChanged();
-            }
-            _serverTimeElapsed.restart();
-            serverTimeUpdated = true;
-            emit serverTimeReceived(_serverTimeBaseMs);
+    const QJsonValue timeValue = valueForKeys({
+        QStringLiteral("serverTimeMs"),
+        QStringLiteral("serverTimestampMs"),
+        QStringLiteral("sunucuSaatiMs"),
+        QStringLiteral("timeMs")
+    });
+    const qint64 newTime = valueToLongLong(timeValue, 0);
+    if (newTime > 0) {
+        const bool wasValid = _serverTimeValid;
+        _serverTimeValid = true;
+        if (!wasValid) {
+            emit serverTimeValidChanged();
         }
+
+        if (_serverTimeBaseMs != newTime) {
+            _serverTimeBaseMs = newTime;
+            emit serverTimeBaseMsChanged();
+        }
+        _serverTimeElapsed.restart();
+        serverTimeUpdated = true;
+        emit serverTimeReceived(_serverTimeBaseMs);
     }
 
     bool newLockStatusActive = _lockStatusActive;
     int newLockRemainingMs = _lockRemainingMs;
     bool hasLockStatusField = false;
 
-    if (obj.contains(QStringLiteral("lockStatus")) && obj.value(QStringLiteral("lockStatus")).isObject()) {
-        const QJsonObject lockObj = obj.value(QStringLiteral("lockStatus")).toObject();
-        if (lockObj.contains(QStringLiteral("active"))) {
-            newLockStatusActive = lockObj.value(QStringLiteral("active")).toBool();
+    const QJsonValue lockStatusValue = valueForKeys({
+        QStringLiteral("lockStatus"),
+        QStringLiteral("kilitDurumu")
+    });
+    if (lockStatusValue.isObject()) {
+        const QJsonObject lockObj = lockStatusValue.toObject();
+
+        if (lockObj.contains(QStringLiteral("active")) || lockObj.contains(QStringLiteral("isActive")) ||
+            lockObj.contains(QStringLiteral("kilitlenmeBasarili"))) {
+            newLockStatusActive = lockObj.value(QStringLiteral("active")).toBool(
+                lockObj.value(QStringLiteral("isActive")).toBool(
+                    lockObj.value(QStringLiteral("kilitlenmeBasarili")).toBool(false)));
             hasLockStatusField = true;
         }
-        if (lockObj.contains(QStringLiteral("remainingMs"))) {
-            newLockRemainingMs = qMax(0, lockObj.value(QStringLiteral("remainingMs")).toVariant().toInt());
+
+        if (lockObj.contains(QStringLiteral("remainingMs")) || lockObj.contains(QStringLiteral("kalanMs"))) {
+            newLockRemainingMs = qMax(0, valueToInt(
+                lockObj.contains(QStringLiteral("remainingMs"))
+                    ? lockObj.value(QStringLiteral("remainingMs"))
+                    : lockObj.value(QStringLiteral("kalanMs")),
+                0));
             hasLockStatusField = true;
-        } else if (lockObj.contains(QStringLiteral("remainingSec"))) {
-            newLockRemainingMs = qMax(0, lockObj.value(QStringLiteral("remainingSec")).toVariant().toInt() * 1000);
+        } else if (lockObj.contains(QStringLiteral("remainingSec")) || lockObj.contains(QStringLiteral("kalanSn"))) {
+            newLockRemainingMs = qMax(0, valueToInt(
+                lockObj.contains(QStringLiteral("remainingSec"))
+                    ? lockObj.value(QStringLiteral("remainingSec"))
+                    : lockObj.value(QStringLiteral("kalanSn")),
+                0) * 1000);
             hasLockStatusField = true;
         }
     }
 
-    if (obj.contains(QStringLiteral("lockStatusActive"))) {
-        newLockStatusActive = obj.value(QStringLiteral("lockStatusActive")).toBool();
+    const QJsonValue lockActiveValue = valueForKeys({
+        QStringLiteral("lockStatusActive"),
+        QStringLiteral("isLocked"),
+        QStringLiteral("kilitAktif")
+    });
+    if (!lockActiveValue.isUndefined()) {
+        newLockStatusActive = lockActiveValue.toBool();
         hasLockStatusField = true;
     }
-    if (obj.contains(QStringLiteral("lockRemainingMs"))) {
-        newLockRemainingMs = qMax(0, obj.value(QStringLiteral("lockRemainingMs")).toVariant().toInt());
+
+    const QJsonValue remainingMsValue = valueForKeys({
+        QStringLiteral("lockRemainingMs"),
+        QStringLiteral("kalanKilitMs")
+    });
+    if (!remainingMsValue.isUndefined()) {
+        newLockRemainingMs = qMax(0, valueToInt(remainingMsValue, 0));
         hasLockStatusField = true;
     }
-    if (obj.contains(QStringLiteral("lockRemainingSec"))) {
-        newLockRemainingMs = qMax(0, obj.value(QStringLiteral("lockRemainingSec")).toVariant().toInt() * 1000);
+
+    const QJsonValue remainingSecValue = valueForKeys({
+        QStringLiteral("lockRemainingSec"),
+        QStringLiteral("kalanKilitSn")
+    });
+    if (!remainingSecValue.isUndefined()) {
+        newLockRemainingMs = qMax(0, valueToInt(remainingSecValue, 0) * 1000);
         hasLockStatusField = true;
     }
 
@@ -558,6 +781,13 @@ void CompetitionServerClient::_handleMessageObject(const QJsonObject& obj)
 
     if (anyListChanged) {
         emit statusTextChanged(QStringLiteral("Competition data updated"));
+    }
+
+    if (messageType == QStringLiteral("auth_ok") || messageType == QStringLiteral("authsuccess")) {
+        emit statusTextChanged(QStringLiteral("Authentication accepted"));
+    } else if (messageType == QStringLiteral("auth_error") || messageType == QStringLiteral("authfailed")) {
+        _setLastErrorString(QStringLiteral("Authentication rejected by server"));
+        emit statusTextChanged(_lastErrorString);
     }
 }
 
@@ -594,6 +824,15 @@ QJsonObject CompetitionServerClient::_buildTelemetryObject() const
 {
     QJsonObject obj;
     obj.insert(QStringLiteral("sysId"), _sysId);
+    obj.insert(QStringLiteral("timestampMs"), QDateTime::currentDateTimeUtc().toMSecsSinceEpoch());
+
+    if (!_competitionNumber.isEmpty()) {
+        obj.insert(QStringLiteral("competitionNumber"), _competitionNumber);
+        obj.insert(QStringLiteral("teamNumber"), _competitionNumber);
+    }
+    if (!_teamName.isEmpty()) {
+        obj.insert(QStringLiteral("teamName"), _teamName);
+    }
 
     if (!qIsNaN(_ownLat))     obj.insert(QStringLiteral("lat"), _ownLat);
     if (!qIsNaN(_ownLon))     obj.insert(QStringLiteral("lon"), _ownLon);

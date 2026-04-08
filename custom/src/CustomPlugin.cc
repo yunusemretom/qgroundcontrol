@@ -153,12 +153,30 @@ void CustomPlugin::init()
                 }
             });
 
+    connect(_competitionSettings->competitionNumber(), &Fact::rawValueChanged,
+            this,
+            [this](const QVariant& value) {
+                if (_competitionServerClient) {
+                    _competitionServerClient->setCompetitionNumber(value.toString());
+                }
+            });
+
+    connect(_competitionSettings->teamName(), &Fact::rawValueChanged,
+            this,
+            [this](const QVariant& value) {
+                if (_competitionServerClient) {
+                    _competitionServerClient->setTeamName(value.toString());
+                }
+            });
+
     _competitionServerClient->setAuthEnabled(_competitionSettings->useAuthentication()->rawValue().toBool());
     _competitionServerClient->setUsername(_competitionSettings->serverUsername()->rawValue().toString());
     _competitionServerClient->setPassword(_competitionSettings->serverPassword()->rawValue().toString());
     _competitionServerClient->setAutoReconnect(_competitionSettings->autoReconnect()->rawValue().toBool());
     _competitionServerClient->setReconnectIntervalMs(_competitionSettings->reconnectIntervalMs()->rawValue().toInt());
     _competitionServerClient->setSysId(_competitionSettings->systemId()->rawValue().toInt());
+    _competitionServerClient->setCompetitionNumber(_competitionSettings->competitionNumber()->rawValue().toString());
+    _competitionServerClient->setTeamName(_competitionSettings->teamName()->rawValue().toString());
     _competitionServerEndpointChanged();
 
     MultiVehicleManager* const multiVehicleManager = MultiVehicleManager::instance();

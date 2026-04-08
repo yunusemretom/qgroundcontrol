@@ -29,6 +29,8 @@ class CompetitionServerClient : public QObject
     Q_PROPERTY(bool authEnabled READ authEnabled WRITE setAuthEnabled NOTIFY authEnabledChanged)
     Q_PROPERTY(QString username READ username WRITE setUsername NOTIFY usernameChanged)
     Q_PROPERTY(QString password READ password WRITE setPassword NOTIFY passwordChanged)
+    Q_PROPERTY(QString competitionNumber READ competitionNumber WRITE setCompetitionNumber NOTIFY competitionNumberChanged)
+    Q_PROPERTY(QString teamName READ teamName WRITE setTeamName NOTIFY teamNameChanged)
     Q_PROPERTY(bool autoReconnect READ autoReconnect WRITE setAutoReconnect NOTIFY autoReconnectChanged)
     Q_PROPERTY(int reconnectIntervalMs READ reconnectIntervalMs WRITE setReconnectIntervalMs NOTIFY reconnectIntervalMsChanged)
     Q_PROPERTY(ConnectionState connectionState READ connectionState NOTIFY connectionStateChanged)
@@ -82,6 +84,12 @@ public:
 
     QString password() const { return _password; }
     void setPassword(const QString& password);
+
+    QString competitionNumber() const { return _competitionNumber; }
+    void setCompetitionNumber(const QString& competitionNumber);
+
+    QString teamName() const { return _teamName; }
+    void setTeamName(const QString& teamName);
 
     bool autoReconnect() const { return _autoReconnect; }
     void setAutoReconnect(bool enabled);
@@ -137,6 +145,8 @@ signals:
     void authEnabledChanged();
     void usernameChanged();
     void passwordChanged();
+    void competitionNumberChanged();
+    void teamNameChanged();
     void autoReconnectChanged();
     void reconnectIntervalMsChanged();
     void connectionStateChanged();
@@ -184,7 +194,10 @@ private slots:
 private:
     void _setConnectionState(ConnectionState state);
     void _setLastErrorString(const QString& s);
+    bool _sendJsonObject(const QJsonObject& obj, const QString& statusText = QString());
+    void _sendHelloPacket();
     void _sendAuthPacket();
+    void _sendCommandPayloadsIfAny();
 
     void _scheduleReconnect();
     void _cancelReconnect();
@@ -203,6 +216,8 @@ private:
     bool            _authEnabled = false;
     QString         _username;
     QString         _password;
+    QString         _competitionNumber;
+    QString         _teamName;
     bool            _autoReconnect = true;
     int             _reconnectIntervalMs = 1000;
     bool            _manualDisconnectRequested = false;
