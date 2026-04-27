@@ -21,8 +21,10 @@
     <qresource prefix="/Custom/qml">
         <file alias="QGroundControl/Controls/AppSettings.qml">src/Controls/AppSettings.qml</file>
         <file alias="QGroundControl/AppSettings/CompetitionSettings.qml">src/AppSettings/CompetitionSettings.qml</file>
+        <file alias="QGroundControl/AppSettings/CustomBrandImageSettings.qml">src/AppSettings/CustomBrandImageSettings.qml</file>
         <file alias="QGroundControl/AppSettings/CustomOpsSettings.qml">src/AppSettings/CustomOpsSettings.qml</file>
         <file alias="QGroundControl/AppSettings/CustomRemoteConnectionSettings.qml">src/AppSettings/CustomRemoteConnectionSettings.qml</file>
+        <file alias="QGroundControl/AppSettings/NoFlyMapSettings.qml">src/AppSettings/NoFlyMapSettings.qml</file>
         <file alias="QGroundControl/AppSettings/SettingsPagesModel.qml">src/AppSettings/SettingsPagesModel.qml</file>
         <file alias="QGroundControl/FlightDisplay/CustomGuidedActionsController.qml">src/CustomGuidedActionsController.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">src/FlyViewCustomLayer.qml</file>

@@ -652,6 +652,10 @@ const QVariantList &APMFirmwarePlugin::toolIndicators(const Vehicle *vehicle)
 
         // Then add the forwarding support indicator
         _toolIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/QGroundControl/Toolbar/APMSupportForwardingIndicator.qml")));
+
+        // Add the competition status indicator so ArduPilot vehicles expose the same
+        // competition drawer used by the custom build.
+        _toolIndicatorList.append(QVariant::fromValue(QUrl::fromUserInput("qrc:/qml/QGroundControl/Toolbar/CompetitionStatusIndicator.qml")));
     }
 
     return _toolIndicatorList;

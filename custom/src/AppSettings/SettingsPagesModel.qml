@@ -21,6 +21,13 @@ ListModel {
     }
 
     ListElement {
+        name: qsTr("Uygulama Resmi")
+        url: "qrc:/Custom/qml/QGroundControl/AppSettings/CustomBrandImageSettings.qml"
+        iconUrl: "qrc:/InstrumentValueIcons/photo.svg"
+        pageVisible: function() { return true }
+    }
+
+    ListElement {
         name: qsTr("Fly View")
         url: "qrc:/qml/QGroundControl/AppSettings/FlyViewSettings.qml"
         iconUrl: "qrc:/qmlimages/PaperPlane.svg"
@@ -59,6 +66,13 @@ ListModel {
         name: qsTr("Yarisma")
         url: "qrc:/Custom/qml/QGroundControl/AppSettings/CompetitionSettings.qml"
         iconUrl: "qrc:/InstrumentValueIcons/airplane.svg"
+        pageVisible: function() { return true }
+    }
+
+    ListElement {
+        name: qsTr("Yasakli Alanlar")
+        url: "qrc:/Custom/qml/QGroundControl/AppSettings/NoFlyMapSettings.qml"
+        iconUrl: "qrc:/InstrumentValueIcons/globe.svg"
         pageVisible: function() { return true }
     }
 

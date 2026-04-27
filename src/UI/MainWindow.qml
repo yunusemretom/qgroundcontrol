@@ -82,6 +82,7 @@ ApplicationWindow {
         readonly property real      defaultTextWidth:               ScreenTools.defaultFontPixelWidth
         readonly property var       planMasterControllerFlyView:    flyView.planController
         readonly property var       guidedControllerFlyView:        flyView.guidedController
+        property string             customNoFlyZonesJson:           ""
 
         // Number of QGCTextField's with validation errors. Used to prevent closing panels with validation errors.
         property int                validationErrorCount:           0 

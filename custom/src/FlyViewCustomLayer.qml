@@ -60,6 +60,13 @@ Item {
     property int    _serverClockMs:         0
     property int    _blinkPhase:            0
 
+    Settings {
+        id: localNoFlySettings
+        category: "CustomNoFlyZones"
+
+        property string zonesJson: "[]"
+    }
+
     function _toNumber(value, fallback) {
         const n = Number(value)
         return isFinite(n) ? n : fallback
@@ -138,7 +145,16 @@ Item {
 
     function _normalizeNoFlyZones() {
         const nowMs = Date.now()
-        const raw = _competitionClient ? _competitionClient.noFlyZones : []
+        let raw = []
+        try {
+            const zonesJson = (globals.customNoFlyZonesJson && globals.customNoFlyZonesJson.length > 0) ? globals.customNoFlyZonesJson : localNoFlySettings.zonesJson
+            const parsed = JSON.parse(zonesJson)
+            if (Array.isArray(parsed)) {
+                raw = parsed
+            }
+        } catch (e) {
+            raw = []
+        }
         const nextState = {}
         const output = []
 
@@ -295,7 +311,7 @@ Item {
     }
 
     function _rebuildNoFlyZoneMapItems() {
-        if (!mapControl || !_competitionClient) {
+        if (!mapControl) {
             return
         }
 
@@ -352,7 +368,7 @@ Item {
     }
 
     function _rebuildCompetitionOverlay() {
-        if (!mapControl || !_competitionClient) {
+        if (!mapControl) {
             return
         }
 
@@ -361,7 +377,7 @@ Item {
         _rebuildBoundaryMapItem()
         _syncLockStatusFromClient()
 
-        if (_competitionClient.serverTimeValid) {
+        if (_competitionClient && _competitionClient.serverTimeValid) {
             _serverClockMs = _competitionClient.currentServerTimeMs()
         }
     }
@@ -536,6 +552,14 @@ Item {
 
         function onLockRemainingMsChanged() {
             _syncLockStatusFromClient()
+        }
+    }
+
+    Connections {
+        target: globals
+
+        function onCustomNoFlyZonesJsonChanged() {
+            _rebuildNoFlyZoneMapItems()
         }
     }
 
