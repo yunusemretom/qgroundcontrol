@@ -118,6 +118,7 @@
 // Custom
 #include "ProtocolProfileTest.h"
 #include "JsonDatagramCodecTest.h"
+#include "FieldMapperTest.h"
 #endif
 
 QGC_LOGGING_CATEGORY(UnitTestsLog, "qgc.test.unittestlist")
@@ -226,6 +227,7 @@ int runTests(bool stress, QStringView unitTestOptions)
 #ifdef QGC_CUSTOM_BUILD
     UT_REGISTER_TEST(ProtocolProfileTest)
     UT_REGISTER_TEST(JsonDatagramCodecTest)
+    UT_REGISTER_TEST(FieldMapperTest)
 #endif
 
     int result = 0;
