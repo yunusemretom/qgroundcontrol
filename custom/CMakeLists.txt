@@ -70,6 +70,8 @@ qt_add_qml_module(CustomModule
 set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomPlugin.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomPlugin.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ProtocolProfile.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ProtocolProfile.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompetitionServerClient.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompetitionServerClient.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AppSettings/CompetitionSettings.cpp
@@ -92,5 +94,6 @@ set(CUSTOM_INCLUDE_DIRECTORIES
     ${CMAKE_CURRENT_SOURCE_DIR}/src
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AutoPilotPlugin
     ${CMAKE_CURRENT_SOURCE_DIR}/src/FirmwarePlugin
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms
     CACHE INTERNAL "" FORCE
 )

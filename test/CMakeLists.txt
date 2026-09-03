@@ -136,3 +136,8 @@ add_qgc_test(VehicleLinkManagerTest)
 # add_qgc_test(LinkManagerTest)
 # add_qgc_test(SendMavCommandTest)
 # add_qgc_test(TCPLinkTest)
+
+if(QGC_CUSTOM_BUILD)
+    add_subdirectory(Custom)
+    add_qgc_test(ProtocolProfileTest)
+endif()

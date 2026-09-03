@@ -114,6 +114,11 @@
 // #include "SendMavCommandTest.h"
 // #include "TCPLinkTest.h"
 
+#ifdef QGC_CUSTOM_BUILD
+// Custom
+#include "ProtocolProfileTest.h"
+#endif
+
 QGC_LOGGING_CATEGORY(UnitTestsLog, "qgc.test.unittestlist")
 
 int runTests(bool stress, QStringView unitTestOptions)
@@ -216,6 +221,10 @@ int runTests(bool stress, QStringView unitTestOptions)
     // UT_REGISTER_TEST(LinkManagerTest)
     // UT_REGISTER_TEST(SendMavCommandTest)
     // UT_REGISTER_TEST(TCPLinkTest)
+
+#ifdef QGC_CUSTOM_BUILD
+    UT_REGISTER_TEST(ProtocolProfileTest)
+#endif
 
     int result = 0;
 
