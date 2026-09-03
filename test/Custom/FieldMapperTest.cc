@@ -268,16 +268,34 @@ void FieldMapperTest::_appliesCentimetersToMeters_test()
 
 void FieldMapperTest::_appliesDiscreteMapWithNumericValue_test()
 {
+    // Test that numeric JSON values are converted to strings for map lookup.
+    // Uses a rule with numeric string keys to verify the toString() branch runs.
+    // If the implementation incorrectly returned the raw number instead of the
+    // mapped value, this assertion would fail (e.g., returning 2 instead of 8).
+    QByteArray customProfile = R"({
+        "name": "Numeric Map Test", "schemaVersion": 1,
+        "vehicle": { "sysId": 1, "compId": 1, "heartbeatHz": 1 },
+        "channels": { "telemetry": { "dir": "in", "transport": "udp",
+                                     "bind": "0.0.0.0:5001", "codec": "json-datagram" } },
+        "telemetry": {
+            "source": "telemetry",
+            "mavlink": {
+                "SYS_STATUS.system_status": { "from": "status_code", "map": { "1": 7, "2": 8, "3": 9 } }
+            },
+            "passthrough": []
+        }
+    })";
+
     ProtocolProfile profile;
-    QVERIFY(profile.loadFromJson(_profileJson(), nullptr));
+    QVERIFY(profile.loadFromJson(customProfile, nullptr));
     const FieldMapper mapper(profile);
 
-    // Test that numeric values are converted to string for map lookup
-    // gps.fix expects true/false booleans, so test with numeric approximation
+    // Send numeric 2; should map to 8, not return 2.
+    // This proves the raw value was stringified and looked up in the map.
     const QHash<QString, QVariant> mapped = mapper.mapTelemetry(
-        packetFrom(R"({"gps": {"fix": true}})"));  // Boolean true
+        packetFrom(R"({"status_code": 2})"));
 
-    QCOMPARE(mapped.value(QStringLiteral("GPS_RAW_INT.fix_type")).toInt(), 3);
+    QCOMPARE(mapped.value(QStringLiteral("SYS_STATUS.system_status")).toInt(), 8);
 }
 
 void FieldMapperTest::_flightModeWithNullPointerDoesNotCrash_test()
