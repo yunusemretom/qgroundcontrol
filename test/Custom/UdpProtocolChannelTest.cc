@@ -195,7 +195,7 @@ void UdpProtocolChannelTest::_bindFailureEmitsError_test()
 
     QVERIFY(!channel.open());
     QVERIFY(!channel.isOpen());
-    QVERIFY(errorSpy.count() >= 1);
+    QCOMPARE(errorSpy.count(), 1);
 }
 
 /// The timeout latch must fire exactly once per silent stretch, and receiving a
