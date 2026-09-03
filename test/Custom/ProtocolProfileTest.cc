@@ -87,6 +87,119 @@ void ProtocolProfileTest::_rejectsRuleWithBothScaleAndUnit_test()
     QVERIFY(!error.isEmpty());
 }
 
+void ProtocolProfileTest::_rejectsNonObjectRoot_test()
+{
+    ProtocolProfile profile;
+    QString error;
+
+    QVERIFY(!profile.loadFromJson(QByteArrayLiteral("[1, 2, 3]"), &error));
+    QVERIFY(!error.isEmpty());
+}
+
+void ProtocolProfileTest::_rejectsNonPositiveHeartbeat_test()
+{
+    const QByteArray json = R"({ "name": "Test", "vehicle": { "heartbeatHz": 0 } })";
+
+    ProtocolProfile profile;
+    QString error;
+
+    QVERIFY(!profile.loadFromJson(json, &error));
+    QVERIFY(!error.isEmpty());
+    QVERIFY(error.contains(QStringLiteral("heartbeatHz")));
+}
+
+void ProtocolProfileTest::_rejectsProfileWithNoChannels_test()
+{
+    ProtocolProfile profile;
+    QString error;
+
+    QVERIFY(!profile.loadFromJson(QByteArrayLiteral(R"({"name": "Test"})"), &error));
+    QVERIFY(!error.isEmpty());
+}
+
+void ProtocolProfileTest::_rejectsChannelWithInvalidDirection_test()
+{
+    const QByteArray json = R"({
+        "name": "Test",
+        "channels": { "telemetry": { "dir": "sideways", "bind": "0.0.0.0:5001" } }
+    })";
+
+    ProtocolProfile profile;
+    QString error;
+
+    QVERIFY(!profile.loadFromJson(json, &error));
+    QVERIFY(!error.isEmpty());
+}
+
+void ProtocolProfileTest::_rejectsChannelWithUnparsableEndpoint_test()
+{
+    const QByteArray missingPort = R"({
+        "name": "Test",
+        "channels": { "telemetry": { "dir": "in" } }
+    })";
+    const QByteArray outOfRangePort = R"({
+        "name": "Test",
+        "channels": { "telemetry": { "dir": "in", "bind": "0.0.0.0:99999" } }
+    })";
+
+    ProtocolProfile missingPortProfile;
+    QString missingPortError;
+    QVERIFY(!missingPortProfile.loadFromJson(missingPort, &missingPortError));
+    QVERIFY(!missingPortError.isEmpty());
+
+    ProtocolProfile outOfRangeProfile;
+    QString outOfRangeError;
+    QVERIFY(!outOfRangeProfile.loadFromJson(outOfRangePort, &outOfRangeError));
+    QVERIFY(!outOfRangeError.isEmpty());
+}
+
+void ProtocolProfileTest::_rejectsUnknownTelemetrySource_test()
+{
+    const QByteArray json = R"({
+        "name": "Test",
+        "channels": { "telemetry": { "dir": "in", "bind": "0.0.0.0:5001" } },
+        "telemetry": { "source": "nonexistent" }
+    })";
+
+    ProtocolProfile profile;
+    QString error;
+
+    QVERIFY(!profile.loadFromJson(json, &error));
+    QVERIFY(!error.isEmpty());
+    QVERIFY(error.contains(QStringLiteral("telemetry.source")));
+}
+
+void ProtocolProfileTest::_rejectsMappingRuleMissingFrom_test()
+{
+    const QByteArray json = R"({
+        "name": "Test",
+        "channels": { "telemetry": { "dir": "in", "bind": "0.0.0.0:5001" } },
+        "telemetry": { "source": "telemetry", "mavlink": { "ATTITUDE.yaw": {} } }
+    })";
+
+    ProtocolProfile profile;
+    QString error;
+
+    QVERIFY(!profile.loadFromJson(json, &error));
+    QVERIFY(!error.isEmpty());
+}
+
+void ProtocolProfileTest::_rejectsMappingRuleWithUnsupportedUnit_test()
+{
+    const QByteArray json = R"({
+        "name": "Test",
+        "channels": { "telemetry": { "dir": "in", "bind": "0.0.0.0:5001" } },
+        "telemetry": { "source": "telemetry",
+                       "mavlink": { "ATTITUDE.yaw": { "from": "yaw", "unit": "furlong2parsec" } } }
+    })";
+
+    ProtocolProfile profile;
+    QString error;
+
+    QVERIFY(!profile.loadFromJson(json, &error));
+    QVERIFY(!error.isEmpty());
+}
+
 void ProtocolProfileTest::_parsesChannelEndpoint_test()
 {
     ProtocolProfile profile;
