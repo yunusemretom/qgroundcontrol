@@ -72,6 +72,9 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomPlugin.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ProtocolProfile.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ProtocolProfile.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/FrameCodec.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/JsonDatagramCodec.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/JsonDatagramCodec.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompetitionServerClient.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompetitionServerClient.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AppSettings/CompetitionSettings.cpp
