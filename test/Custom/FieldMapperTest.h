@@ -31,6 +31,11 @@ private slots:
     void _passthroughCopiesDeclaredFields_test();
     void _flightModeMapsKnownValue_test();
     void _flightModeUnknownValueReportsNotFound_test();
+    void _appliesRadToDeg_test();
+    void _appliesMetersToCentimeters_test();
+    void _appliesCentimetersToMeters_test();
+    void _appliesDiscreteMapWithNumericValue_test();
+    void _flightModeWithNullPointerDoesNotCrash_test();
 
 private:
     static QByteArray _profileJson();

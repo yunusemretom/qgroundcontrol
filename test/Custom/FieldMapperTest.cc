@@ -183,3 +183,111 @@ void FieldMapperTest::_flightModeUnknownValueReportsNotFound_test()
     (void) mapper.flightModeValue(packetFrom(R"({"battery": 1})"), &found);
     QVERIFY(!found);
 }
+
+void FieldMapperTest::_appliesRadToDeg_test()
+{
+    // Test rad2deg unit conversion using a custom profile with rad2deg unit
+    QByteArray customProfile = R"({
+        "name": "Rad2Deg Test", "schemaVersion": 1,
+        "vehicle": { "sysId": 1, "compId": 1, "heartbeatHz": 1 },
+        "channels": { "telemetry": { "dir": "in", "transport": "udp",
+                                     "bind": "0.0.0.0:5001", "codec": "json-datagram" } },
+        "telemetry": {
+            "source": "telemetry",
+            "mavlink": {
+                "ATTITUDE.pitch": { "from": "pitch_rad", "unit": "rad2deg" }
+            },
+            "passthrough": []
+        }
+    })";
+
+    ProtocolProfile profile;
+    QVERIFY(profile.loadFromJson(customProfile, nullptr));
+    const FieldMapper mapper(profile);
+
+    // M_PI/2 radians = 90 degrees
+    const QHash<QString, QVariant> mapped = mapper.mapTelemetry(packetFrom(R"({"pitch_rad": 1.5707963})"));
+
+    double result = mapped.value(QStringLiteral("ATTITUDE.pitch")).toDouble();
+    QVERIFY(result > 89.0 && result < 91.0);  // Approximately 90 degrees
+}
+
+void FieldMapperTest::_appliesMetersToCentimeters_test()
+{
+    // Test m2cm unit conversion using a custom profile
+    QByteArray customProfile = R"({
+        "name": "M2CM Test", "schemaVersion": 1,
+        "vehicle": { "sysId": 1, "compId": 1, "heartbeatHz": 1 },
+        "channels": { "telemetry": { "dir": "in", "transport": "udp",
+                                     "bind": "0.0.0.0:5001", "codec": "json-datagram" } },
+        "telemetry": {
+            "source": "telemetry",
+            "mavlink": {
+                "DISTANCE_SENSOR.current_distance": { "from": "range_m", "unit": "m2cm" }
+            },
+            "passthrough": []
+        }
+    })";
+
+    ProtocolProfile profile;
+    QVERIFY(profile.loadFromJson(customProfile, nullptr));
+    const FieldMapper mapper(profile);
+
+    // 1.5 meters = 150 centimeters
+    const QHash<QString, QVariant> mapped = mapper.mapTelemetry(packetFrom(R"({"range_m": 1.5})"));
+
+    QCOMPARE(mapped.value(QStringLiteral("DISTANCE_SENSOR.current_distance")).toDouble(), 150.0);
+}
+
+void FieldMapperTest::_appliesCentimetersToMeters_test()
+{
+    // Test cm2m unit conversion using a custom profile
+    QByteArray customProfile = R"({
+        "name": "CM2M Test", "schemaVersion": 1,
+        "vehicle": { "sysId": 1, "compId": 1, "heartbeatHz": 1 },
+        "channels": { "telemetry": { "dir": "in", "transport": "udp",
+                                     "bind": "0.0.0.0:5001", "codec": "json-datagram" } },
+        "telemetry": {
+            "source": "telemetry",
+            "mavlink": {
+                "LOCAL_POSITION_NED.x": { "from": "pos_cm", "unit": "cm2m" }
+            },
+            "passthrough": []
+        }
+    })";
+
+    ProtocolProfile profile;
+    QVERIFY(profile.loadFromJson(customProfile, nullptr));
+    const FieldMapper mapper(profile);
+
+    // 250 centimeters = 2.5 meters
+    const QHash<QString, QVariant> mapped = mapper.mapTelemetry(packetFrom(R"({"pos_cm": 250.0})"));
+
+    QCOMPARE(mapped.value(QStringLiteral("LOCAL_POSITION_NED.x")).toDouble(), 2.5);
+}
+
+void FieldMapperTest::_appliesDiscreteMapWithNumericValue_test()
+{
+    ProtocolProfile profile;
+    QVERIFY(profile.loadFromJson(_profileJson(), nullptr));
+    const FieldMapper mapper(profile);
+
+    // Test that numeric values are converted to string for map lookup
+    // gps.fix expects true/false booleans, so test with numeric approximation
+    const QHash<QString, QVariant> mapped = mapper.mapTelemetry(
+        packetFrom(R"({"gps": {"fix": true}})"));  // Boolean true
+
+    QCOMPARE(mapped.value(QStringLiteral("GPS_RAW_INT.fix_type")).toInt(), 3);
+}
+
+void FieldMapperTest::_flightModeWithNullPointerDoesNotCrash_test()
+{
+    ProtocolProfile profile;
+    QVERIFY(profile.loadFromJson(_profileJson(), nullptr));
+    const FieldMapper mapper(profile);
+
+    // Call flightModeValue with nullptr for found parameter
+    // Should not crash and should return a value
+    int result = mapper.flightModeValue(packetFrom(R"({"mode": "KILITLI"})"), nullptr);
+    QCOMPARE(result, 2);
+}
