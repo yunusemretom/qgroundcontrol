@@ -120,6 +120,7 @@
 #include "JsonDatagramCodecTest.h"
 #include "FieldMapperTest.h"
 #include "MAVLinkSynthesizerTest.h"
+#include "UdpProtocolChannelTest.h"
 #endif
 
 QGC_LOGGING_CATEGORY(UnitTestsLog, "qgc.test.unittestlist")
@@ -230,6 +231,7 @@ int runTests(bool stress, QStringView unitTestOptions)
     UT_REGISTER_TEST(JsonDatagramCodecTest)
     UT_REGISTER_TEST(FieldMapperTest)
     UT_REGISTER_TEST(MAVLinkSynthesizerTest)
+    UT_REGISTER_TEST(UdpProtocolChannelTest)
 #endif
 
     int result = 0;

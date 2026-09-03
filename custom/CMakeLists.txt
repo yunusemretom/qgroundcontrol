@@ -79,6 +79,9 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/FieldMapper.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/MAVLinkSynthesizer.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/MAVLinkSynthesizer.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ProtocolChannel.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/UdpProtocolChannel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/UdpProtocolChannel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompetitionServerClient.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompetitionServerClient.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AppSettings/CompetitionSettings.cpp
