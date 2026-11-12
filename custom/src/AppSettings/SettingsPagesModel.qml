@@ -110,9 +110,12 @@ ListModel {
         iconUrl: "qrc:/InstrumentValueIcons/inbox-download.svg"
         pageVisible: function() {
             var activeVehicle = QGroundControl.multiVehicleManager.activeVehicle
+            // The page binds to the active vehicle's MAVLink log manager, so it needs a
+            // connected PX4 vehicle; stock QGC shows it with no vehicle and every field
+            // then throws "Cannot read property of null".
             return QGroundControl.corePlugin.options.showPX4LogTransferOptions &&
                         QGroundControl.px4ProFirmwareSupported &&
-                        (activeVehicle ? activeVehicle.px4Firmware : true)
+                        !!activeVehicle && activeVehicle.px4Firmware
         }
     }
 
@@ -153,7 +156,9 @@ ListModel {
 
     ListElement {
         name: qsTr("Palette Test")
-        url: "qrc:/qml/QGroundControl/AppSettings/QmlTest.qml"
+        // UnitTest.qrc publishes the page at /qml/QmlTest.qml; the stock path pointed at a
+        // file that does not exist, so the page was always blank.
+        url: "qrc:/qml/QmlTest.qml"
         iconUrl: "qrc:/InstrumentValueIcons/photo.svg"
         pageVisible: function() { return ScreenTools.isDebug }
     }

@@ -111,7 +111,7 @@ SettingsPage {
 
     SettingsGroupLayout {
         heading:  qsTr("Channels")
-        visible:  _link
+        visible:  !!_link
 
         Repeater {
             model: _link ? _link.channelStates : []
@@ -150,7 +150,7 @@ SettingsPage {
     SettingsGroupLayout {
         heading:            qsTr("Turret")
         headingDescription: qsTr("A fixed emplacement has no altitude or ground speed of its own. \"Target altitude\" is the turret's estimate for the tracked object, and \"Slew rate\" is how fast the mount is turning.")
-        visible:            _link
+        visible:            !!_link
 
         LabelledLabel {
             Layout.fillWidth:   true
@@ -202,54 +202,58 @@ SettingsPage {
     }
 
     SettingsGroupLayout {
+        id:       targetGroup
         heading:  qsTr("Current target")
-        visible:  _link
+        visible:  !!_link
 
+        // Referenced by id, not `parent`: SettingsGroupLayout reparents its children into
+        // an inner layout, so `parent._target` was always undefined and the target was
+        // never shown.
         property var _target: _data["target"] ? _data["target"] : null
 
         QGCLabel {
             Layout.fillWidth:   true
             wrapMode:           Text.WordWrap
             text:               qsTr("No target being tracked.")
-            visible:            !parent._target
+            visible:            !targetGroup._target
             color:              qgcPal.colorGrey
         }
 
         LabelledLabel {
             Layout.fillWidth:   true
-            visible:            parent._target
+            visible:            !!targetGroup._target
             label:              qsTr("Label")
-            labelText:          parent._target && parent._target.label ? parent._target.label : _noValue
+            labelText:          targetGroup._target && targetGroup._target.label ? targetGroup._target.label : _noValue
         }
 
         LabelledLabel {
             Layout.fillWidth:   true
-            visible:            parent._target
+            visible:            !!targetGroup._target
             label:              qsTr("Faction")
-            labelText:          parent._target && parent._target.faction ? parent._target.faction : _noValue
+            labelText:          targetGroup._target && targetGroup._target.faction ? targetGroup._target.faction : _noValue
         }
 
         LabelledLabel {
             Layout.fillWidth:   true
-            visible:            parent._target
+            visible:            !!targetGroup._target
             label:              qsTr("Track ID")
-            labelText:          parent._target && parent._target.track_id !== undefined ? parent._target.track_id : _noValue
+            labelText:          targetGroup._target && targetGroup._target.track_id !== undefined ? targetGroup._target.track_id : _noValue
         }
 
         LabelledLabel {
             Layout.fillWidth:   true
-            visible:            parent._target
+            visible:            !!targetGroup._target
             label:              qsTr("Range")
-            labelText:          parent._target && parent._target.range_m !== undefined
-                                    ? Number(parent._target.range_m).toFixed(1) + qsTr(" m") : _noValue
+            labelText:          targetGroup._target && targetGroup._target.range_m !== undefined
+                                    ? Number(targetGroup._target.range_m).toFixed(1) + qsTr(" m") : _noValue
         }
 
         LabelledLabel {
             Layout.fillWidth:   true
-            visible:            parent._target
+            visible:            !!targetGroup._target
             label:              qsTr("In range window")
-            labelText:          parent._target
-                                    ? (parent._target.in_range_window ? qsTr("Yes") : qsTr("No")) : _noValue
+            labelText:          targetGroup._target
+                                    ? (targetGroup._target.in_range_window ? qsTr("Yes") : qsTr("No")) : _noValue
         }
     }
 }
