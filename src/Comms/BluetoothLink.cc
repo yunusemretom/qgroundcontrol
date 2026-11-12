@@ -345,7 +345,7 @@ void BluetoothWorker::_serviceDiscovered(const QBluetoothServiceInfo &info)
         return;
     }
 
-    if ((_config->device().uuid == info.device().deviceUuid()) && (_config->device().name == info.device().name)) {
+    if ((_config->device().uuid == info.device().deviceUuid()) && (_config->device().name == info.device().name())) {
         _socket->connectToService(info);
     }
 }
