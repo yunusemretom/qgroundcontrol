@@ -22,7 +22,7 @@ Item {
     property real   pitch:          0           ///< degrees, nose up positive
     property real   heading:        0           ///< degrees, 0..360
     property bool   valid:          true        ///< false: no vehicle, readouts show dashes
-    property bool   showBackground: false       ///< draw the card behind the dials
+    property bool   showBackground: false       ///< opaque card behind the dials; otherwise a light frame
 
     property color  panelColor:     Qt.rgba(0.07, 0.09, 0.12, 0.88)
     property color  borderColor:    Qt.rgba(1, 1, 1, 0.10)
@@ -61,11 +61,12 @@ Item {
     function _fmt(v) { return (v < 0 ? "−" : "") + Math.abs(Math.round(v)) + "°" }
 
     Rectangle {
-        visible:        root.showBackground
+        // Full card when showBackground, otherwise just a hairline frame with the
+        // faintest tint, so the dials read as one unit without hiding the map.
         anchors.fill:   parent
         radius:         unit * 0.6
-        color:          root.panelColor
-        border.color:   root.borderColor
+        color:          root.showBackground ? root.panelColor : Qt.rgba(0, 0, 0, 0.14)
+        border.color:   root.showBackground ? root.borderColor : Qt.rgba(1, 1, 1, 0.28)
         border.width:   1
     }
 
