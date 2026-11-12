@@ -29,6 +29,23 @@ ToolIndicatorPage {
     property var    rtkSettings:        QGroundControl.settingsManager.rtkSettings
     property bool   useFixedPosition:   rtkSettings.useFixedBasePosition.rawValue
 
+    // QGroundControl.gpsRtk is null in builds without serial links (iOS); fall back to an
+    // inert stand-in so the RTK bindings below read "not connected" instead of throwing.
+    property var    _rtk:               QGroundControl.gpsRtk ? QGroundControl.gpsRtk : _noRtk
+
+    QtObject {
+        id: _noRtk
+        readonly property var connected:        ({ value: false, rawValue: false, valueString: "" })
+        readonly property var active:           ({ value: false, rawValue: false, valueString: "" })
+        readonly property var valid:            ({ value: false, rawValue: false, valueString: "" })
+        readonly property var numSatellites:    ({ value: 0, rawValue: 0, valueString: "0" })
+        readonly property var currentDuration:  ({ value: 0, rawValue: 0, valueString: "0" })
+        readonly property var currentAccuracy:  ({ value: 0, rawValue: 0, valueString: "" })
+        readonly property var currentLatitude:  ({ value: 0, rawValue: 0, valueString: "" })
+        readonly property var currentLongitude: ({ value: 0, rawValue: 0, valueString: "" })
+        readonly property var currentAltitude:  ({ value: 0, rawValue: 0, valueString: "" })
+    }
+
     contentComponent: Component {
         ColumnLayout {
             spacing: ScreenTools.defaultFontPixelHeight / 2
@@ -65,26 +82,26 @@ ToolIndicatorPage {
 
             SettingsGroupLayout {
                 heading:    qsTr("RTK GPS Status")
-                visible:    QGroundControl.gpsRtk.connected.value
+                visible:    _rtk.connected.value
 
                 QGCLabel {
-                    text: (QGroundControl.gpsRtk.active.value) ? qsTr("Survey-in Active") : qsTr("RTK Streaming")
+                    text: (_rtk.active.value) ? qsTr("Survey-in Active") : qsTr("RTK Streaming")
                 }
 
                 LabelledLabel {
                     label:      qsTr("Satellites")
-                    labelText:  QGroundControl.gpsRtk.numSatellites.value
+                    labelText:  _rtk.numSatellites.value
                 }
 
                 LabelledLabel {
                     label:      qsTr("Duration")
-                    labelText:  QGroundControl.gpsRtk.currentDuration.value + ' s'
+                    labelText:  _rtk.currentDuration.value + ' s'
                 }
 
                 LabelledLabel {
-                    label:      QGroundControl.gpsRtk.valid.value ? qsTr("Accuracy") : qsTr("Current Accuracy")
-                    labelText:  QGroundControl.gpsRtk.currentAccuracy.valueString + " " + QGroundControl.unitsConversion.appSettingsHorizontalDistanceUnitsString
-                    visible:    QGroundControl.gpsRtk.currentAccuracy.value > 0
+                    label:      _rtk.valid.value ? qsTr("Accuracy") : qsTr("Current Accuracy")
+                    labelText:  _rtk.currentAccuracy.valueString + " " + QGroundControl.unitsConversion.appSettingsHorizontalDistanceUnitsString
+                    visible:    _rtk.currentAccuracy.value > 0
                 }
             }
         }
@@ -165,13 +182,13 @@ ToolIndicatorPage {
                 label:              qsTr("Current Base Position")
                 buttonText:         enabled ? qsTr("Save") : qsTr("Not Yet Valid")
                 visible:            useFixedPosition
-                enabled:            QGroundControl.gpsRtk.valid.value
+                enabled:            _rtk.valid.value
 
                 onClicked: {
-                    rtkSettings.fixedBasePositionLatitude.rawValue  = QGroundControl.gpsRtk.currentLatitude.rawValue
-                    rtkSettings.fixedBasePositionLongitude.rawValue = QGroundControl.gpsRtk.currentLongitude.rawValue
-                    rtkSettings.fixedBasePositionAltitude.rawValue  = QGroundControl.gpsRtk.currentAltitude.rawValue
-                    rtkSettings.fixedBasePositionAccuracy.rawValue  = QGroundControl.gpsRtk.currentAccuracy.rawValue
+                    rtkSettings.fixedBasePositionLatitude.rawValue  = _rtk.currentLatitude.rawValue
+                    rtkSettings.fixedBasePositionLongitude.rawValue = _rtk.currentLongitude.rawValue
+                    rtkSettings.fixedBasePositionAltitude.rawValue  = _rtk.currentAltitude.rawValue
+                    rtkSettings.fixedBasePositionAccuracy.rawValue  = _rtk.currentAccuracy.rawValue
                 }
             }
         }

@@ -42,7 +42,9 @@
 #include "FollowMe.h"
 #include "GeoTagController.h"
 #include "GimbalController.h"
-#include "GPSRtk.h"
+#ifndef QGC_NO_SERIAL_LINK
+#include "GPSRtk.h"   // src/GPS is not built without serial links (e.g. iOS)
+#endif
 #include "JoystickConfigController.h"
 #include "JoystickManager.h"
 #include "JsonHelper.h"
@@ -277,7 +279,9 @@ void QGCApplication::init()
     SettingsManager::registerQmlTypes();
     VideoManager::registerQmlTypes();
     QGCCorePlugin::registerQmlTypes();
+#ifndef QGC_NO_SERIAL_LINK
     GPSRtk::registerQmlTypes();
+#endif
     JoystickManager::registerQmlTypes();
 #ifdef QGC_VIEWER3D
     Viewer3DManager::registerQmlTypes();

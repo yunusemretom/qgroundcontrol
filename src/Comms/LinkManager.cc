@@ -522,6 +522,10 @@ void LinkManager::_updateAutoConnectLinks()
     _addZeroConfAutoConnectLink();
 #endif
 
+#ifndef QGC_NO_SERIAL_LINK
+    // NMEA input lives with the serial support (_nmeaSocket, UdpIODevice and the
+    // position-manager hookup are only compiled with it), so builds without serial
+    // links (iOS) skip this block entirely.
     // check to see if nmea gps is configured for UDP input, if so, set it up to connect
     if (_autoConnectSettings->autoConnectNmeaPort()->cookedValueString() == "UDP Port") {
         if ((_nmeaSocket->localPort() != _autoConnectSettings->nmeaUdpPort()->rawValue().toUInt()) || (_nmeaSocket->state() != UdpIODevice::BoundState)) {
@@ -542,7 +546,6 @@ void LinkManager::_updateAutoConnectLinks()
         _nmeaSocket->close();
     }
 
-#ifndef QGC_NO_SERIAL_LINK
     _addSerialAutoConnectLink();
 #endif
 }
@@ -802,6 +805,7 @@ void LinkManager::resetMavlinkSigning()
     }
 }
 
+#ifndef QGC_NO_SERIAL_LINK
 void LinkManager::_filterCompositePorts(QList<QGCSerialPortInfo> &portList)
 {
     typedef QPair<quint16, quint16> VidPidPair_t;
@@ -826,6 +830,7 @@ void LinkManager::_filterCompositePorts(QList<QGCSerialPortInfo> &portList)
         it++;
     }
 }
+#endif // QGC_NO_SERIAL_LINK
 
 #ifndef QGC_NO_SERIAL_LINK // Serial Only Functions
 

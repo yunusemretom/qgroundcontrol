@@ -25,7 +25,7 @@ Item {
     anchors.bottom: parent.bottom
 
     property var    _activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
-    property bool   _rtkConnected:  QGroundControl.gpsRtk.connected.value
+    property bool   _rtkConnected:  QGroundControl.gpsRtk ? QGroundControl.gpsRtk.connected.value : false   // gpsRtk is null without serial links (iOS)
 
     Row {
         id:             gpsIndicatorRow
