@@ -21,7 +21,8 @@ Item {
     property real   roll:           0           ///< degrees, right wing down positive
     property real   pitch:          0           ///< degrees, nose up positive
     property real   heading:        0           ///< degrees, 0..360
-    property bool   valid:          true        ///< false: no vehicle, instruments shown dimmed
+    property bool   valid:          true        ///< false: no vehicle, readouts show dashes
+    property bool   showBackground: false       ///< draw the card behind the dials
 
     property color  panelColor:     Qt.rgba(0.07, 0.09, 0.12, 0.88)
     property color  borderColor:    Qt.rgba(1, 1, 1, 0.10)
@@ -60,6 +61,7 @@ Item {
     function _fmt(v) { return (v < 0 ? "−" : "") + Math.abs(Math.round(v)) + "°" }
 
     Rectangle {
+        visible:        root.showBackground
         anchors.fill:   parent
         radius:         unit * 0.6
         color:          root.panelColor
@@ -74,7 +76,6 @@ Item {
         y:          _pad
         width:      _dial
         height:     _dial
-        opacity:    root.valid ? 1 : 0.45
         antialiasing: true
 
         property real r: Math.min(width, height) / 2
@@ -182,7 +183,6 @@ Item {
         y:          _pad
         width:      _dial
         height:     _dial
-        opacity:    root.valid ? 1 : 0.45
         antialiasing: true
 
         onPaint: {
@@ -191,9 +191,10 @@ Item {
             var cx = width / 2, cy = height / 2
             ctx.reset()
 
+            // Opaque face: with no card behind it the rose sits directly on map imagery.
             var face = ctx.createRadialGradient(cx, cy, 0, cx, cy, r)
-            face.addColorStop(0, "rgba(255,255,255,0.07)")
-            face.addColorStop(1, "rgba(255,255,255,0.02)")
+            face.addColorStop(0, "#2a3038")
+            face.addColorStop(1, "#15191e")
             ctx.fillStyle = face
             ctx.beginPath(); ctx.arc(cx, cy, r - 1, 0, 2 * Math.PI); ctx.fill()
             ctx.strokeStyle = "rgba(255,255,255,0.18)"; ctx.lineWidth = 1.5
@@ -237,7 +238,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           root.valid ? ("00" + Math.round(root._wrap360(root.heading)) % 360).slice(-3) + "°" : "—"
-                color:          root.textColor
+                color:          "#ffffff"   // always on the dark rose face
                 font.family:    root.fontFamily
                 font.pixelSize: Math.round(unit * 1.05)
                 font.weight:    Font.DemiBold
@@ -245,7 +246,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text:           "HDG"
-                color:          root.mutedTextColor
+                color:          Qt.rgba(1, 1, 1, 0.55)
                 font.family:    root.fontFamily
                 font.pixelSize: Math.round(unit * 0.48)
                 font.letterSpacing: unit * 0.08
@@ -260,7 +261,9 @@ Item {
         y:                  attitude.y + attitude.height + (root._footer - height) / 2
         horizontalAlignment: Text.AlignHCenter
         text:               root.valid ? ("R " + root._fmt(root.roll) + "   P " + root._fmt(root.pitch)) : "R —   P —"
-        color:              root.mutedTextColor
+        color:              root.showBackground ? root.mutedTextColor : "#ffffff"
+        style:              root.showBackground ? Text.Normal : Text.Outline
+        styleColor:         Qt.rgba(0, 0, 0, 0.75)
         font.family:        root.fontFamily
         font.pixelSize:     Math.round(unit * 0.62)
     }
@@ -270,7 +273,9 @@ Item {
         y:                  rose.y + rose.height + (root._footer - height) / 2
         horizontalAlignment: Text.AlignHCenter
         text:               root.valid ? root._cardinal(root.heading) : "—"
-        color:              root.mutedTextColor
+        color:              root.showBackground ? root.mutedTextColor : "#ffffff"
+        style:              root.showBackground ? Text.Normal : Text.Outline
+        styleColor:         Qt.rgba(0, 0, 0, 0.75)
         font.family:        root.fontFamily
         font.pixelSize:     Math.round(unit * 0.62)
         font.weight:        Font.DemiBold
