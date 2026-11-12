@@ -23,4 +23,5 @@ private slots:
     void _decodesMultipleLines_test();
     void _handlesChunkedStream_test();
     void _encodeAppendsNewline_test();
+    void _discardsOversizedUnterminatedLine_test();
 };

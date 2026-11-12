@@ -21,6 +21,11 @@ public:
     QByteArray encode(const QJsonObject &object) override;
 
     int malformedCount() const { return _malformedCount; }
+    int bufferedBytes() const { return static_cast<int>(_buffer.size()); }
+
+    /// Longest line accepted. A peer that sends more without a newline is broken or
+    /// hostile; its partial line is discarded rather than buffered forever.
+    static constexpr int kMaxLineBytes = 1024 * 1024;
 
 private:
     QByteArray _buffer;

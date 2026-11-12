@@ -127,6 +127,7 @@
 #include "CsvCodecTest.h"
 #include "TcpProtocolChannelTest.h"
 #include "ExternalProtocolLinkTest.h"
+#include "CompetitionServerClientTest.h"
 #endif
 
 QGC_LOGGING_CATEGORY(UnitTestsLog, "qgc.test.unittestlist")
@@ -244,6 +245,7 @@ int runTests(bool stress, QStringView unitTestOptions)
     UT_REGISTER_TEST(CsvCodecTest)
     UT_REGISTER_TEST(TcpProtocolChannelTest)
     UT_REGISTER_TEST(ExternalProtocolLinkTest)
+    UT_REGISTER_TEST(CompetitionServerClientTest)
 #endif
 
     int result = 0;

@@ -361,6 +361,13 @@ void CompetitionServerClient::_onSocketReadyRead()
 
         _handleJsonLine(line);
     }
+
+    // A server that never sends a newline must not grow this buffer without bound.
+    if (_rxBuffer.size() > kMaxLineBytes) {
+        _rxBuffer.clear();
+        _setLastErrorString(QStringLiteral("Discarded an over-long line from the server"));
+        emit statusTextChanged(_lastErrorString);
+    }
 }
 
 void CompetitionServerClient::_onSocketErrorOccurred(QAbstractSocket::SocketError)
@@ -590,7 +597,10 @@ void CompetitionServerClient::_handleMessageObject(const QJsonObject& obj)
                 return dataObj.value(key);
             }
         }
-        return QJsonValue();
+        // Undefined, not Null: callers test isUndefined() to mean "field absent". A
+        // default QJsonValue() is Null, which made every packet look like it carried
+        // lock fields and reset the lock state to false/0.
+        return QJsonValue(QJsonValue::Undefined);
     };
 
     auto valueToLongLong = [](const QJsonValue& value, qint64 fallback) -> qint64 {

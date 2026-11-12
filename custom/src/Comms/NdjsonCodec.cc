@@ -41,6 +41,12 @@ QList<QJsonObject> NdjsonCodec::decode(const QByteArray &bytes)
         frames.append(doc.object());
     }
 
+    if (_buffer.size() > kMaxLineBytes) {
+        qCWarning(NdjsonCodecLog) << "Discarding" << _buffer.size() << "bytes with no line terminator";
+        _buffer.clear();
+        _malformedCount++;
+    }
+
     return frames;
 }
 

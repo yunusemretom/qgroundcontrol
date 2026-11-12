@@ -67,6 +67,9 @@ public:
     };
     Q_ENUM(ConnectionState)
 
+    /// Longest NDJSON line accepted from the server before the partial line is dropped.
+    static constexpr int kMaxLineBytes = 1024 * 1024;
+
     explicit CompetitionServerClient(QObject* parent = nullptr);
     ~CompetitionServerClient() override;
 
