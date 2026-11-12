@@ -28,9 +28,66 @@ Rectangle {
     property var    _activeVehicle:     QGroundControl.multiVehicleManager.activeVehicle
     property bool   _communicationLost: _activeVehicle ? _activeVehicle.vehicleLinkManager.communicationLost : false
     property color  _mainStatusBGColor: qgcPal.brandingPurple
+    property var    _vehicleLinkNames:  _activeVehicle ? _activeVehicle.vehicleLinkManager.linkNames : [ ]
 
     function dropMainStatusIndicatorTool() {
         mainStatusIndicator.dropMainStatusIndicator();
+    }
+
+    /// Link configurations backing the links the active vehicle is currently using.
+    function activeVehicleLinkConfigs() {
+        var configs     = []
+        var allConfigs  = QGroundControl.linkManager.linkConfigurations
+
+        for (var i = 0; i < allConfigs.count; i++) {
+            var config = allConfigs.get(i)
+            if (config.link && _vehicleLinkNames.indexOf(config.name) !== -1) {
+                configs.push(config)
+            }
+        }
+        return configs
+    }
+
+    function confirmDisconnect() {
+        var configs             = activeVehicleLinkConfigs()
+        var linkNames           = []
+        var autoConnectNames    = []
+
+        for (var i = 0; i < configs.length; i++) {
+            linkNames.push(configs[i].name)
+            if (configs[i].autoConnect) {
+                autoConnectNames.push(configs[i].name)
+            }
+        }
+
+        var message = linkNames.length ?
+            qsTr("Disconnect from %1?").arg(linkNames.join(", ")) :
+            qsTr("Disconnect from the vehicle?")
+
+        if (autoConnectNames.length) {
+            message += "\n\n" + qsTr("%1 is an AutoConnect link and will reconnect on its own. Turn AutoConnect off in Application Settings to stay disconnected.").arg(autoConnectNames.join(", "))
+        }
+
+        mainWindow.showMessageDialog(qsTr("Disconnect"), message, Dialog.Yes | Dialog.No, function() { _root.disconnectVehicle() })
+    }
+
+    /// Drops the links the vehicle is using. The vehicle tears itself down once its last link goes
+    /// away, so closeVehicle() is only needed as a fallback when no link config could be matched.
+    function disconnectVehicle() {
+        var configs = activeVehicleLinkConfigs()
+
+        if (configs.length === 0) {
+            if (_activeVehicle) {
+                _activeVehicle.closeVehicle()
+            }
+            return
+        }
+
+        for (var i = 0; i < configs.length; i++) {
+            if (configs[i].link) {
+                configs[i].link.disconnect()
+            }
+        }
     }
 
     QGCPalette { id: qgcPal }
@@ -79,8 +136,10 @@ Rectangle {
         QGCButton {
             id:                 disconnectButton
             text:               qsTr("Disconnect")
-            onClicked:          _activeVehicle.closeVehicle()
-            visible:            _activeVehicle && _communicationLost
+            visible:            _activeVehicle
+            backgroundColor:    _communicationLost ? qgcPal.colorRed : qgcPal.button
+            textColor:          _communicationLost ? qgcPal.buttonHighlightText : qgcPal.buttonText
+            onClicked:          _root.confirmDisconnect()
         }
     }
 
