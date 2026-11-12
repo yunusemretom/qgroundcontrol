@@ -73,6 +73,11 @@ public:
     int     compId() const { return _compId; }
     int     heartbeatHz() const { return _heartbeatHz; }
 
+    /// Whether the bridged device should advertise itself as ready to operate.
+    /// A non-MAVLink device has no prearm concept, so a device that is talking to us
+    /// is ready by definition; a profile can opt out with "reportsReady": false.
+    bool    reportsReady() const { return _reportsReady; }
+
     QStringList   channelNames() const { return _channels.keys(); }
     ChannelConfig channel(const QString &name) const { return _channels.value(name); }
 
@@ -93,6 +98,7 @@ private:
     int     _sysId          = 1;
     int     _compId         = 1;
     int     _heartbeatHz    = 1;
+    bool    _reportsReady   = true;
 
     QMap<QString, ChannelConfig> _channels;
     QString                      _telemetrySource;

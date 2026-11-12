@@ -82,6 +82,18 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ProtocolChannel.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/UdpProtocolChannel.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/UdpProtocolChannel.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ExternalProtocolConfiguration.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ExternalProtocolConfiguration.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ExternalProtocolLink.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/ExternalProtocolLink.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/NdjsonCodec.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/NdjsonCodec.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/TcpProtocolChannel.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/TcpProtocolChannel.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/CommandTranslator.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/CommandTranslator.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/CsvCodec.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Comms/CsvCodec.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompetitionServerClient.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompetitionServerClient.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/AppSettings/CompetitionSettings.cpp
@@ -92,6 +104,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/FirmwarePlugin/CustomFirmwarePlugin.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/FirmwarePlugin/CustomFirmwarePluginFactory.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/FirmwarePlugin/CustomFirmwarePluginFactory.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/FirmwarePlugin/TurretFirmwarePlugin.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/FirmwarePlugin/TurretFirmwarePlugin.h
     CACHE INTERNAL "" FORCE
 )
 

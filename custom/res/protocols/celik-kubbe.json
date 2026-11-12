@@ -1,0 +1,64 @@
+{
+  "name": "Çelik Kubbe Taret",
+  "schemaVersion": 1,
+  "vehicle": {
+    "mavType": "MAV_TYPE_GENERIC",
+    "sysId": 1,
+    "compId": 1,
+    "heartbeatHz": 1,
+    "reportsReady": true
+  },
+  "channels": {
+    "telemetry": {
+      "dir": "in",
+      "transport": "udp",
+      "bind": "0.0.0.0:5001",
+      "codec": "json-datagram",
+      "timeoutMs": 3000
+    },
+    "command": {
+      "dir": "out",
+      "transport": "tcp",
+      "connect": "127.0.0.1:5000",
+      "codec": "ndjson",
+      "reconnectMs": 5000
+    },
+    "joystick": {
+      "dir": "out",
+      "transport": "udp",
+      "connect": "127.0.0.1:5005",
+      "codec": "csv",
+      "rateHz": 50,
+      "template": "{pitch:.3f},{yaw:.3f},{fire:.0f},{arm:.0f}",
+      "failsafe": "0.000,0.000,0,0"
+    }
+  },
+  "telemetry": {
+    "source": "telemetry",
+    "mavlink": {
+      "GLOBAL_POSITION_INT.lat":          { "from": "gps.lat",  "scale": 10000000 },
+      "GLOBAL_POSITION_INT.lon":          { "from": "gps.lon",  "scale": 10000000 },
+      "GLOBAL_POSITION_INT.hdg":          { "from": "heading",  "scale": 100 },
+      "ATTITUDE.roll":                    { "from": "roll",  "unit": "deg2rad" },
+      "ATTITUDE.pitch":                   { "from": "pitch", "unit": "deg2rad" },
+      "ATTITUDE.yaw":                     { "from": "yaw",   "unit": "deg2rad" },
+      "SYS_STATUS.battery_remaining":     { "from": "battery" },
+      "GPS_RAW_INT.satellites_visible":   { "from": "gps.satellites" },
+      "GPS_RAW_INT.fix_type":             { "from": "gps.fix", "map": { "true": 3, "false": 0 } }
+    },
+    "flightMode": {
+      "from": "mode",
+      "values": { "ARAMA": 0, "TAKIP": 1, "KILITLI": 2 }
+    },
+    "passthrough": [
+      "tracking", "fps", "frame", "locked", "fire", "shots",
+      "detections", "turret", "target", "seq", "source", "rssi",
+      "altitude", "speed"
+    ]
+  },
+  "commands": {
+    "arm":     { "channel": "command", "template": { "cmd": "arm",      "params": {} } },
+    "disarm":  { "channel": "command", "template": { "cmd": "disarm",   "params": {} } },
+    "setMode": { "channel": "command", "template": { "cmd": "set_mode", "params": { "mode": "{value}" } } }
+  }
+}

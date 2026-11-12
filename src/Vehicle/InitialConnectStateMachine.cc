@@ -77,26 +77,37 @@ float InitialConnectStateMachine::_progress(float subProgress)
     return (progressWeight + currentWeight * subProgress) / static_cast<float>(_progressWeightTotal);
 }
 
+static bool _shouldSkipRequests(const SharedLinkInterfacePtr& sharedLink)
+{
+    if (!sharedLink) {
+        return true;
+    }
+    if (sharedLink->linkConfiguration()->isHighLatency() || sharedLink->isLogReplay()) {
+        return true;
+    }
+#ifdef QGC_CUSTOM_BUILD
+    if (sharedLink->linkConfiguration()->type() == LinkConfiguration::TypeExternalProtocol) {
+        return true;
+    }
+#endif
+    return false;
+}
+
 void InitialConnectStateMachine::_stateRequestAutopilotVersion(StateMachine* stateMachine)
 {
     InitialConnectStateMachine* connectMachine  = static_cast<InitialConnectStateMachine*>(stateMachine);
     Vehicle*                    vehicle         = connectMachine->_vehicle;
     SharedLinkInterfacePtr      sharedLink      = vehicle->vehicleLinkManager()->primaryLink().lock();
 
-    if (!sharedLink) {
-        qCDebug(InitialConnectStateMachineLog) << "Skipping REQUEST_MESSAGE:AUTOPILOT_VERSION request due to no primary link";
+    if (_shouldSkipRequests(sharedLink)) {
+        qCDebug(InitialConnectStateMachineLog) << "Skipping REQUEST_MESSAGE:AUTOPILOT_VERSION request due to link type";
         connectMachine->advance();
     } else {
-        if (sharedLink->linkConfiguration()->isHighLatency() || sharedLink->isLogReplay()) {
-            qCDebug(InitialConnectStateMachineLog) << "Skipping REQUEST_MESSAGE:AUTOPILOT_VERSION request due to link type";
-            connectMachine->advance();
-        } else {
-            qCDebug(InitialConnectStateMachineLog) << "Sending REQUEST_MESSAGE:AUTOPILOT_VERSION";
-            vehicle->requestMessage(_autopilotVersionRequestMessageHandler,
-                                    connectMachine,
-                                    MAV_COMP_ID_AUTOPILOT1,
-                                    MAVLINK_MSG_ID_AUTOPILOT_VERSION);
-        }
+        qCDebug(InitialConnectStateMachineLog) << "Sending REQUEST_MESSAGE:AUTOPILOT_VERSION";
+        vehicle->requestMessage(_autopilotVersionRequestMessageHandler,
+                                connectMachine,
+                                MAV_COMP_ID_AUTOPILOT1,
+                                MAVLINK_MSG_ID_AUTOPILOT_VERSION);
     }
 }
 
@@ -195,23 +206,15 @@ void InitialConnectStateMachine::_stateRequestProtocolVersion(StateMachine* stat
     Vehicle*                    vehicle         = connectMachine->_vehicle;
     SharedLinkInterfacePtr      sharedLink      = vehicle->vehicleLinkManager()->primaryLink().lock();
 
-    if (!sharedLink) {
-        qCDebug(InitialConnectStateMachineLog) << "Skipping REQUEST_MESSAGE:PROTOCOL_VERSION request due to no primary link";
+    if (_shouldSkipRequests(sharedLink) || vehicle->apmFirmware()) {
+        qCDebug(InitialConnectStateMachineLog) << "Skipping REQUEST_MESSAGE:PROTOCOL_VERSION request due to link type";
         connectMachine->advance();
     } else {
-        if (sharedLink->linkConfiguration()->isHighLatency() || sharedLink->isLogReplay()) {
-            qCDebug(InitialConnectStateMachineLog) << "Skipping REQUEST_MESSAGE:PROTOCOL_VERSION request due to link type";
-            connectMachine->advance();
-        } else if (vehicle->apmFirmware()) {
-            qCDebug(InitialConnectStateMachineLog) << "Skipping REQUEST_MESSAGE:PROTOCOL_VERSION request due to Ardupilot firmware";
-            connectMachine->advance();
-        } else {
-            qCDebug(InitialConnectStateMachineLog) << "Sending REQUEST_MESSAGE:PROTOCOL_VERSION";
-            vehicle->requestMessage(_protocolVersionRequestMessageHandler,
-                                    connectMachine,
-                                    MAV_COMP_ID_AUTOPILOT1,
-                                    MAVLINK_MSG_ID_PROTOCOL_VERSION);
-        }
+        qCDebug(InitialConnectStateMachineLog) << "Sending REQUEST_MESSAGE:PROTOCOL_VERSION";
+        vehicle->requestMessage(_protocolVersionRequestMessageHandler,
+                                connectMachine,
+                                MAV_COMP_ID_AUTOPILOT1,
+                                MAVLINK_MSG_ID_PROTOCOL_VERSION);
     }
 }
 
@@ -247,8 +250,6 @@ void InitialConnectStateMachine::_protocolVersionRequestMessageHandler(void* res
     }
 
     if (failureCode != Vehicle::RequestMessageNoFailure) {
-        // Either the PROTOCOL_VERSION message didn't make it through the pipe from Vehicle->QGC because the pipe is mavlink 1.
-        // Or the PROTOCOL_VERSION message was lost on a noisy connection. Either way the best we can do is fall back to mavlink 1.
         qCDebug(InitialConnectStateMachineLog) << QStringLiteral("Setting _maxProtoVersion to 100 due to timeout on receiving PROTOCOL_VERSION message.");
         vehicle->_mavlinkProtocolRequestMaxProtoVersion = 100;
         vehicle->_mavlinkProtocolRequestComplete = true;
@@ -257,26 +258,39 @@ void InitialConnectStateMachine::_protocolVersionRequestMessageHandler(void* res
 
     connectMachine->advance();
 }
+
 void InitialConnectStateMachine::_stateRequestCompInfo(StateMachine* stateMachine)
 {
     InitialConnectStateMachine* connectMachine  = static_cast<InitialConnectStateMachine*>(stateMachine);
     Vehicle*                    vehicle         = connectMachine->_vehicle;
+    SharedLinkInterfacePtr      sharedLink      = vehicle->vehicleLinkManager()->primaryLink().lock();
 
-    qCDebug(InitialConnectStateMachineLog) << "_stateRequestCompInfo";
-    connect(vehicle->_componentInformationManager, &ComponentInformationManager::progressUpdate, connectMachine,
-            &InitialConnectStateMachine::gotProgressUpdate);
-    vehicle->_componentInformationManager->requestAllComponentInformation(_stateRequestCompInfoComplete, connectMachine);
+    if (_shouldSkipRequests(sharedLink)) {
+        qCDebug(InitialConnectStateMachineLog) << "Skipping _stateRequestCompInfo due to link type";
+        connectMachine->advance();
+    } else {
+        qCDebug(InitialConnectStateMachineLog) << "_stateRequestCompInfo";
+        connect(vehicle->_componentInformationManager, &ComponentInformationManager::progressUpdate, connectMachine,
+                &InitialConnectStateMachine::gotProgressUpdate);
+        vehicle->_componentInformationManager->requestAllComponentInformation(_stateRequestCompInfoComplete, connectMachine);
+    }
 }
 
 void InitialConnectStateMachine::_stateRequestStandardModes(StateMachine *stateMachine)
 {
     InitialConnectStateMachine* connectMachine  = static_cast<InitialConnectStateMachine*>(stateMachine);
     Vehicle*                    vehicle         = connectMachine->_vehicle;
+    SharedLinkInterfacePtr      sharedLink      = vehicle->vehicleLinkManager()->primaryLink().lock();
 
-    qCDebug(InitialConnectStateMachineLog) << "_stateRequestStandardModes";
-    connect(vehicle->_standardModes, &StandardModes::requestCompleted, connectMachine,
-            &InitialConnectStateMachine::standardModesRequestCompleted);
-    vehicle->_standardModes->request();
+    if (_shouldSkipRequests(sharedLink)) {
+        qCDebug(InitialConnectStateMachineLog) << "Skipping _stateRequestStandardModes due to link type";
+        connectMachine->advance();
+    } else {
+        qCDebug(InitialConnectStateMachineLog) << "_stateRequestStandardModes";
+        connect(vehicle->_standardModes, &StandardModes::requestCompleted, connectMachine,
+                &InitialConnectStateMachine::standardModesRequestCompleted);
+        vehicle->_standardModes->request();
+    }
 }
 
 void InitialConnectStateMachine::standardModesRequestCompleted()
@@ -299,11 +313,17 @@ void InitialConnectStateMachine::_stateRequestParameters(StateMachine* stateMach
 {
     InitialConnectStateMachine* connectMachine  = static_cast<InitialConnectStateMachine*>(stateMachine);
     Vehicle*                    vehicle         = connectMachine->_vehicle;
+    SharedLinkInterfacePtr      sharedLink      = vehicle->vehicleLinkManager()->primaryLink().lock();
 
-    qCDebug(InitialConnectStateMachineLog) << "_stateRequestParameters";
-    connect(vehicle->_parameterManager, &ParameterManager::loadProgressChanged, connectMachine,
-            &InitialConnectStateMachine::gotProgressUpdate);
-    vehicle->_parameterManager->refreshAllParameters();
+    if (_shouldSkipRequests(sharedLink)) {
+        qCDebug(InitialConnectStateMachineLog) << "Skipping _stateRequestParameters due to link type";
+        connectMachine->advance();
+    } else {
+        qCDebug(InitialConnectStateMachineLog) << "_stateRequestParameters";
+        connect(vehicle->_parameterManager, &ParameterManager::loadProgressChanged, connectMachine,
+                &InitialConnectStateMachine::gotProgressUpdate);
+        vehicle->_parameterManager->refreshAllParameters();
+    }
 }
 
 void InitialConnectStateMachine::_stateRequestMission(StateMachine* stateMachine)
@@ -315,18 +335,15 @@ void InitialConnectStateMachine::_stateRequestMission(StateMachine* stateMachine
     disconnect(vehicle->_parameterManager, &ParameterManager::loadProgressChanged, connectMachine,
             &InitialConnectStateMachine::gotProgressUpdate);
 
-    if (!sharedLink) {
-        qCDebug(InitialConnectStateMachineLog) << "_stateRequestMission: Skipping first mission load request due to no primary link";
-        connectMachine->advance();
+    if (_shouldSkipRequests(sharedLink)) {
+        qCDebug(InitialConnectStateMachineLog) << "_stateRequestMission: Skipping first mission load request due to link type";
+        // _firstMissionLoadComplete() advances the state machine itself; advancing again here
+        // would move two states for one.
+        vehicle->_firstMissionLoadComplete();
     } else {
-        if (sharedLink->linkConfiguration()->isHighLatency() || sharedLink->isLogReplay()) {
-            qCDebug(InitialConnectStateMachineLog) << "_stateRequestMission: Skipping first mission load request due to link type";
-            vehicle->_firstMissionLoadComplete();
-        } else {
-            qCDebug(InitialConnectStateMachineLog) << "_stateRequestMission";
-            vehicle->_missionManager->loadFromVehicle();
-            (void) connect(vehicle->_missionManager, &MissionManager::progressPctChanged, connectMachine, &InitialConnectStateMachine::gotProgressUpdate);
-        }
+        qCDebug(InitialConnectStateMachineLog) << "_stateRequestMission";
+        vehicle->_missionManager->loadFromVehicle();
+        (void) connect(vehicle->_missionManager, &MissionManager::progressPctChanged, connectMachine, &InitialConnectStateMachine::gotProgressUpdate);
     }
 }
 
@@ -339,23 +356,19 @@ void InitialConnectStateMachine::_stateRequestGeoFence(StateMachine* stateMachin
     disconnect(vehicle->_missionManager, &MissionManager::progressPctChanged, connectMachine,
                &InitialConnectStateMachine::gotProgressUpdate);
 
-    if (!sharedLink) {
-        qCDebug(InitialConnectStateMachineLog) << "_stateRequestGeoFence: Skipping first geofence load request due to no primary link";
-        connectMachine->advance();
+    if (_shouldSkipRequests(sharedLink)) {
+        qCDebug(InitialConnectStateMachineLog) << "_stateRequestGeoFence: Skipping first geofence load request due to link type";
+        // _firstGeoFenceLoadComplete() advances the state machine itself.
+        vehicle->_firstGeoFenceLoadComplete();
     } else {
-        if (sharedLink->linkConfiguration()->isHighLatency() || sharedLink->isLogReplay()) {
-            qCDebug(InitialConnectStateMachineLog) << "_stateRequestGeoFence: Skipping first geofence load request due to link type";
-            vehicle->_firstGeoFenceLoadComplete();
+        if (vehicle->_geoFenceManager->supported()) {
+            qCDebug(InitialConnectStateMachineLog) << "_stateRequestGeoFence";
+            vehicle->_geoFenceManager->loadFromVehicle();
+            connect(vehicle->_geoFenceManager, &GeoFenceManager::progressPctChanged, connectMachine,
+                    &InitialConnectStateMachine::gotProgressUpdate);
         } else {
-            if (vehicle->_geoFenceManager->supported()) {
-                qCDebug(InitialConnectStateMachineLog) << "_stateRequestGeoFence";
-                vehicle->_geoFenceManager->loadFromVehicle();
-                connect(vehicle->_geoFenceManager, &GeoFenceManager::progressPctChanged, connectMachine,
-                        &InitialConnectStateMachine::gotProgressUpdate);
-            } else {
-                qCDebug(InitialConnectStateMachineLog) << "_stateRequestGeoFence: skipped due to no support";
-                vehicle->_firstGeoFenceLoadComplete();
-            }
+            qCDebug(InitialConnectStateMachineLog) << "_stateRequestGeoFence: skipped due to no support";
+            vehicle->_firstGeoFenceLoadComplete();
         }
     }
 }
@@ -369,22 +382,18 @@ void InitialConnectStateMachine::_stateRequestRallyPoints(StateMachine* stateMac
     disconnect(vehicle->_geoFenceManager, &GeoFenceManager::progressPctChanged, connectMachine,
                &InitialConnectStateMachine::gotProgressUpdate);
 
-    if (!sharedLink) {
-        qCDebug(InitialConnectStateMachineLog) << "_stateRequestRallyPoints: Skipping first rally point load request due to no primary link";
-        connectMachine->advance();
+    if (_shouldSkipRequests(sharedLink)) {
+        qCDebug(InitialConnectStateMachineLog) << "_stateRequestRallyPoints: Skipping first rally point load request due to link type";
+        // _firstRallyPointLoadComplete() advances the state machine itself.
+        vehicle->_firstRallyPointLoadComplete();
     } else {
-        if (sharedLink->linkConfiguration()->isHighLatency() || sharedLink->isLogReplay()) {
-            qCDebug(InitialConnectStateMachineLog) << "_stateRequestRallyPoints: Skipping first rally point load request due to link type";
-            vehicle->_firstRallyPointLoadComplete();
+        if (vehicle->_rallyPointManager->supported()) {
+            vehicle->_rallyPointManager->loadFromVehicle();
+            connect(vehicle->_rallyPointManager, &RallyPointManager::progressPctChanged, connectMachine,
+                    &InitialConnectStateMachine::gotProgressUpdate);
         } else {
-            if (vehicle->_rallyPointManager->supported()) {
-                vehicle->_rallyPointManager->loadFromVehicle();
-                connect(vehicle->_rallyPointManager, &RallyPointManager::progressPctChanged, connectMachine,
-                        &InitialConnectStateMachine::gotProgressUpdate);
-            } else {
-                qCDebug(InitialConnectStateMachineLog) << "_stateRequestRallyPoints: skipping due to no support";
-                vehicle->_firstRallyPointLoadComplete();
-            }
+            qCDebug(InitialConnectStateMachineLog) << "_stateRequestRallyPoints: skipping due to no support";
+            vehicle->_firstRallyPointLoadComplete();
         }
     }
 }

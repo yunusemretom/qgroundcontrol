@@ -117,10 +117,16 @@
 #ifdef QGC_CUSTOM_BUILD
 // Custom
 #include "ProtocolProfileTest.h"
+#include "TurretFirmwarePluginTest.h"
 #include "JsonDatagramCodecTest.h"
 #include "FieldMapperTest.h"
 #include "MAVLinkSynthesizerTest.h"
 #include "UdpProtocolChannelTest.h"
+#include "NdjsonCodecTest.h"
+#include "CommandTranslatorTest.h"
+#include "CsvCodecTest.h"
+#include "TcpProtocolChannelTest.h"
+#include "ExternalProtocolLinkTest.h"
 #endif
 
 QGC_LOGGING_CATEGORY(UnitTestsLog, "qgc.test.unittestlist")
@@ -228,10 +234,16 @@ int runTests(bool stress, QStringView unitTestOptions)
 
 #ifdef QGC_CUSTOM_BUILD
     UT_REGISTER_TEST(ProtocolProfileTest)
+    UT_REGISTER_TEST(TurretFirmwarePluginTest)
     UT_REGISTER_TEST(JsonDatagramCodecTest)
     UT_REGISTER_TEST(FieldMapperTest)
     UT_REGISTER_TEST(MAVLinkSynthesizerTest)
     UT_REGISTER_TEST(UdpProtocolChannelTest)
+    UT_REGISTER_TEST(NdjsonCodecTest)
+    UT_REGISTER_TEST(CommandTranslatorTest)
+    UT_REGISTER_TEST(CsvCodecTest)
+    UT_REGISTER_TEST(TcpProtocolChannelTest)
+    UT_REGISTER_TEST(ExternalProtocolLinkTest)
 #endif
 
     int result = 0;

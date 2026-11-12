@@ -70,6 +70,13 @@ ListModel {
     }
 
     ListElement {
+        name: qsTr("Taret")
+        url: "qrc:/Custom/qml/QGroundControl/AppSettings/TurretSettings.qml"
+        iconUrl: "qrc:/InstrumentValueIcons/target.svg"
+        pageVisible: function() { return true }
+    }
+
+    ListElement {
         name: qsTr("Yasakli Alanlar")
         url: "qrc:/Custom/qml/QGroundControl/AppSettings/NoFlyMapSettings.qml"
         iconUrl: "qrc:/InstrumentValueIcons/globe.svg"

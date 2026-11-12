@@ -23,6 +23,9 @@
 #ifndef QGC_AIRLINK_DISABLED
 #include "AirLinkLink.h"
 #endif
+#ifdef QGC_CUSTOM_BUILD
+#include "ExternalProtocolConfiguration.h"
+#endif
 
 LinkConfiguration::LinkConfiguration(const QString &name, QObject *parent)
     : QObject(parent)
@@ -94,6 +97,11 @@ LinkConfiguration *LinkConfiguration::createSettings(int type, const QString &na
         config = new AirLinkConfiguration(name);
         break;
 #endif
+#ifdef QGC_CUSTOM_BUILD
+    case TypeExternalProtocol:
+        config = new ExternalProtocolConfiguration(name);
+        break;
+#endif
     case TypeLast:
     default:
         break;
@@ -134,6 +142,11 @@ LinkConfiguration *LinkConfiguration::duplicateSettings(const LinkConfiguration 
 #ifndef QGC_AIRLINK_DISABLED
     case AirLink:
         dupe = new AirLinkConfiguration(qobject_cast<const AirLinkConfiguration*>(source));
+        break;
+#endif
+#ifdef QGC_CUSTOM_BUILD
+    case TypeExternalProtocol:
+        dupe = new ExternalProtocolConfiguration(qobject_cast<const ExternalProtocolConfiguration*>(source));
         break;
 #endif
     case TypeLast:

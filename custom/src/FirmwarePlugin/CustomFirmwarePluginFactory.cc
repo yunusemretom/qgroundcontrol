@@ -13,6 +13,7 @@
 
 #include "CustomFirmwarePluginFactory.h"
 #include "CustomFirmwarePlugin.h"
+#include "TurretFirmwarePlugin.h"
 
 CustomFirmwarePluginFactory CustomFirmwarePluginFactoryImp;
 
@@ -26,6 +27,7 @@ QList<QGCMAVLink::FirmwareClass_t> CustomFirmwarePluginFactory::supportedFirmwar
 {
     QList<QGCMAVLink::FirmwareClass_t> firmwareClasses;
     firmwareClasses.append(QGCMAVLink::FirmwareClassPX4);
+    firmwareClasses.append(QGCMAVLink::FirmwareClassGeneric);
     return firmwareClasses;
 }
 
@@ -44,5 +46,13 @@ FirmwarePlugin* CustomFirmwarePluginFactory::firmwarePluginForAutopilot(MAV_AUTO
         }
         return _pluginInstance;
     }
+
+    if (autopilotType == MAV_AUTOPILOT_GENERIC) {
+        if (!_turretPluginInstance) {
+            _turretPluginInstance = new TurretFirmwarePlugin;
+        }
+        return _turretPluginInstance;
+    }
+
     return nullptr;
 }

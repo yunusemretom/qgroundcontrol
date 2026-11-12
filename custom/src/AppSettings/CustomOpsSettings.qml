@@ -11,6 +11,7 @@ import QtCore
 
 import QGroundControl
 import QGroundControl.Controls
+import QGroundControl.Palette
 import QGroundControl.ScreenTools
 import QGroundControl.AppSettings 1.0
 
@@ -18,6 +19,8 @@ SettingsPage {
     id: root
 
     property string _newChecklistItemText: ""
+
+    QGCPalette { id: qgcPal }
 
     function _splitLines(rawText) {
         if (!rawText || rawText.length === 0) {
@@ -128,7 +131,7 @@ SettingsPage {
                 Layout.fillWidth: true
                 radius: ScreenTools.defaultFontPixelWidth * 0.2
                 border.width: 1
-                border.color: qgcPal.text
+                border.color: qgcPal.groupBorder
                 color: qgcPal.windowShade
                 implicitHeight: checklistInputField.implicitHeight + (ScreenTools.defaultFontPixelHeight * 0.4)
 

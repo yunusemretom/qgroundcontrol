@@ -88,6 +88,9 @@ public:
 #ifndef QGC_AIRLINK_DISABLED
         AirLink,
 #endif
+#ifdef QGC_CUSTOM_BUILD
+        TypeExternalProtocol,   ///< Profile-driven non-MAVLink protocol bridge
+#endif
         TypeLogReplay,
         TypeLast        // Last type value (type >= TypeLast == invalid)
     };

@@ -454,7 +454,11 @@ void ParameterManager::refreshAllParameters(uint8_t componentId)
         return;
     }
 
-    if (sharedLink->linkConfiguration()->isHighLatency() || _logReplay) {
+    if (sharedLink->linkConfiguration()->isHighLatency() || _logReplay
+#ifdef QGC_CUSTOM_BUILD
+        || (sharedLink->linkConfiguration()->type() == LinkConfiguration::TypeExternalProtocol)
+#endif
+    ) {
         // These links don't load params
         _parametersReady = true;
         _missingParameters = true;
@@ -462,6 +466,7 @@ void ParameterManager::refreshAllParameters(uint8_t componentId)
         _waitingForDefaultComponent = false;
         emit parametersReadyChanged(_parametersReady);
         emit missingParametersChanged(_missingParameters);
+        return;
     }
 
     if (!_initialLoadComplete) {

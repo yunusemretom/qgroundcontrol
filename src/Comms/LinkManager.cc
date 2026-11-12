@@ -41,6 +41,10 @@
 #include "AirLinkLink.h"
 #endif
 
+#ifdef QGC_CUSTOM_BUILD
+#include "ExternalProtocolLink.h"
+#endif
+
 #ifdef QGC_ZEROCONF_ENABLED
 #include <qmdnsengine/browser.h>
 #include <qmdnsengine/cache.h>
@@ -152,6 +156,11 @@ bool LinkManager::createConnectedLink(SharedLinkConfigurationPtr &config)
 #ifndef QGC_AIRLINK_DISABLED
     case LinkConfiguration::AirLink:
         link = std::make_shared<AirLinkLink>(config);
+        break;
+#endif
+#ifdef QGC_CUSTOM_BUILD
+    case LinkConfiguration::TypeExternalProtocol:
+        link = std::make_shared<ExternalProtocolLink>(config);
         break;
 #endif
     case LinkConfiguration::TypeLast:
@@ -363,6 +372,11 @@ void LinkManager::loadLinkConfigurationList()
                 link = new AirLinkConfiguration(name);
                 break;
 #endif
+#ifdef QGC_CUSTOM_BUILD
+            case LinkConfiguration::TypeExternalProtocol:
+                link = new ExternalProtocolConfiguration(name);
+                break;
+#endif
             case LinkConfiguration::TypeLast:
             default:
                 break;
@@ -565,6 +579,9 @@ QStringList LinkManager::linkTypeStrings() const
 #endif
 #ifndef QGC_AIRLINK_DISABLED
     list += tr("AirLink");
+#endif
+#ifdef QGC_CUSTOM_BUILD
+    list += tr("External Protocol");
 #endif
     list += tr("Log Replay");
 

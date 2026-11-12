@@ -116,6 +116,15 @@ mavlink_message_t MAVLinkSynthesizer::_buildAttitude() const
     return message;
 }
 
+uint32_t MAVLinkSynthesizer::_readyBits() const
+{
+    // Advertising PREARM_CHECK as present, enabled and healthy is what makes QGC treat
+    // the bridged device as operational. A profile can opt out with
+    // "vehicle": { "reportsReady": false }, in which case we advertise nothing and QGC
+    // falls back to its own judgement.
+    return _profile.reportsReady() ? static_cast<uint32_t>(MAV_SYS_STATUS_PREARM_CHECK) : 0u;
+}
+
 mavlink_message_t MAVLinkSynthesizer::_buildSysStatus() const
 {
     mavlink_message_t message{};
@@ -125,7 +134,12 @@ mavlink_message_t MAVLinkSynthesizer::_buildSysStatus() const
         static_cast<uint8_t>(_profile.compId()),
         _channel,
         &message,
-        0, 0, 0,                            // sensors present / enabled / health
+        // QGC decides "Ready To Fly" from the PREARM_CHECK bit: it needs the bit in
+        // `enabled` for readyToFlyAvailable, and in `health` for readyToFly itself
+        // (Vehicle.cc:992-1003). With all three words zero it falls back to requiring
+        // autopilotPlugin.setupComplete, which a device with no parameters can never
+        // satisfy — that is what showed "Not Ready" in the toolbar.
+        _readyBits(), _readyBits(), _readyBits(),  // sensors present / enabled / health
         0,                                  // load
         static_cast<uint16_t>(_value(QStringLiteral("SYS_STATUS.voltage_battery"), UINT16_MAX)),
         -1,                                 // current_battery, -1 = unknown

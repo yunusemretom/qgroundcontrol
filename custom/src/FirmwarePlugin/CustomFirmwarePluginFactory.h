@@ -34,6 +34,7 @@ public:
 
 private:
     CustomFirmwarePlugin*   _pluginInstance;
+    FirmwarePlugin*         _turretPluginInstance = nullptr;
 };
 
 extern CustomFirmwarePluginFactory CustomFirmwarePluginFactoryImp;

@@ -34,6 +34,10 @@ SettingsPage {
     property bool _newActive: true
     property bool _autoFit: true
     property var _flightMapSettings: QGroundControl.settingsManager ? QGroundControl.settingsManager.flightMapSettings : null
+    property string _maxSquareLatText: ""
+    property string _maxSquareLonText: ""
+    property string _maxSquareRadiusText: "250"
+    property bool _maxSquareActive: true
 
     readonly property real _mapHeight: ScreenTools.defaultFontPixelHeight * 22
 
@@ -46,6 +50,7 @@ SettingsPage {
         category: "CustomNoFlyZones"
 
         property string zonesJson: "[]"
+        property string maxSquareJson: ""
     }
 
     ListModel {
@@ -87,6 +92,52 @@ SettingsPage {
         if (_autoFit && map.mapReady) {
             Qt.callLater(_fitZones)
         }
+    }
+
+    function _saveMaxSquareToSettings() {
+        var lat = _toNumber(_maxSquareLatText, NaN)
+        var lon = _toNumber(_maxSquareLonText, NaN)
+        var radiusM = _toNumber(_maxSquareRadiusText, NaN)
+
+        if (!isFinite(lat) || !isFinite(lon) || !isFinite(radiusM) || radiusM <= 0) {
+            localSettings.maxSquareJson = ""
+            globals.customMaxSquareJson = ""
+            return
+        }
+
+        var output = {
+            lat: lat,
+            lon: lon,
+            radiusM: radiusM,
+            active: _maxSquareActive === true
+        }
+        localSettings.maxSquareJson = JSON.stringify(output)
+        globals.customMaxSquareJson = localSettings.maxSquareJson
+    }
+
+    function _loadMaxSquareFromSettings() {
+        var raw = []
+        try {
+            var source = (globals.customMaxSquareJson && globals.customMaxSquareJson.length > 0) ? globals.customMaxSquareJson : localSettings.maxSquareJson
+            if (source && source.length > 0) {
+                raw = JSON.parse(source)
+            }
+        } catch (e) {
+            raw = []
+        }
+
+        if (!raw || typeof raw !== "object") {
+            _maxSquareLatText = ""
+            _maxSquareLonText = ""
+            _maxSquareRadiusText = "250"
+            _maxSquareActive = true
+            return
+        }
+
+        _maxSquareLatText = isFinite(_toNumber(raw.lat, NaN)) ? String(_toNumber(raw.lat, NaN)) : ""
+        _maxSquareLonText = isFinite(_toNumber(raw.lon, NaN)) ? String(_toNumber(raw.lon, NaN)) : ""
+        _maxSquareRadiusText = isFinite(_toNumber(raw.radiusM, NaN)) ? String(_toNumber(raw.radiusM, NaN)) : "250"
+        _maxSquareActive = raw.active === undefined ? true : raw.active === true
     }
 
     function _loadZonesFromSettings() {
@@ -161,6 +212,15 @@ SettingsPage {
         _loadZonesFromSettings()
     }
 
+    function _useVehicleLocationForSquare() {
+        if (!_activeVehicle || !_activeVehicle.coordinate || !_activeVehicle.coordinate.isValid) {
+            return
+        }
+
+        _maxSquareLatText = _activeVehicle.coordinate.latitude.toFixed(6)
+        _maxSquareLonText = _activeVehicle.coordinate.longitude.toFixed(6)
+    }
+
     function _fitZones() {
         var coords = []
 
@@ -226,8 +286,12 @@ SettingsPage {
 
     Component.onCompleted: {
         _refreshZoneModel()
+        _loadMaxSquareFromSettings()
         if (!globals.customNoFlyZonesJson || globals.customNoFlyZonesJson.length === 0) {
             globals.customNoFlyZonesJson = localSettings.zonesJson
+        }
+        if (!globals.customMaxSquareJson || globals.customMaxSquareJson.length === 0) {
+            globals.customMaxSquareJson = localSettings.maxSquareJson
         }
     }
 
@@ -249,6 +313,10 @@ SettingsPage {
         target: localSettings
         function onZonesJsonChanged() {
             _loadZonesFromSettings()
+        }
+
+        function onMaxSquareJsonChanged() {
+            _loadMaxSquareFromSettings()
         }
     }
 
@@ -345,6 +413,88 @@ SettingsPage {
             text: qsTr("Aşağıdaki listeden kayıtlı alanları düzenleyebilirsin. Alanlar sunucudan çekilmez; sadece bu cihazda saklanır.")
         }
 
+        Rectangle {
+            Layout.fillWidth: true
+            radius: ScreenTools.defaultFontPixelWidth * 0.3
+            border.width: 1
+            border.color: qgcPal.groupBorder
+            color: qgcPal.windowShade
+
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: ScreenTools.defaultFontPixelWidth * 0.5
+                spacing: ScreenTools.defaultFontPixelHeight * 0.35
+
+                QGCLabel {
+                    text: qsTr("Maksimum Kare Sınır")
+                    font.bold: true
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: ScreenTools.defaultFontPixelWidth
+
+                    QGCButton {
+                        text: qsTr("Arac Konumunu Al")
+                        onClicked: _useVehicleLocationForSquare()
+                    }
+
+                    QGCButton {
+                        text: qsTr("Kaydet")
+                        onClicked: _saveMaxSquareToSettings()
+                    }
+
+                    QGCCheckBox {
+                        text: qsTr("Aktif")
+                        checked: _maxSquareActive
+                        onClicked: {
+                            _maxSquareActive = checked
+                            _saveMaxSquareToSettings()
+                        }
+                    }
+
+                    Item {
+                        Layout.fillWidth: true
+                    }
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    columns: 3
+                    rowSpacing: ScreenTools.defaultFontPixelWidth * 0.4
+                    columnSpacing: ScreenTools.defaultFontPixelWidth * 0.5
+
+                    QGCLabel { text: qsTr("Merkez Enlem") }
+                    QGCLabel { text: qsTr("Merkez Boylam") }
+                    QGCLabel { text: qsTr("Yarıçap (m)") }
+
+                    QGCTextField {
+                        Layout.fillWidth: true
+                        placeholderText: "41.123456"
+                        text: _maxSquareLatText
+                        onTextChanged: _maxSquareLatText = text
+                        onEditingFinished: _saveMaxSquareToSettings()
+                    }
+
+                    QGCTextField {
+                        Layout.fillWidth: true
+                        placeholderText: "29.123456"
+                        text: _maxSquareLonText
+                        onTextChanged: _maxSquareLonText = text
+                        onEditingFinished: _saveMaxSquareToSettings()
+                    }
+
+                    QGCTextField {
+                        Layout.fillWidth: true
+                        placeholderText: "250"
+                        text: _maxSquareRadiusText
+                        onTextChanged: _maxSquareRadiusText = text
+                        onEditingFinished: _saveMaxSquareToSettings()
+                    }
+                }
+            }
+        }
+
         Repeater {
             model: zonesModel
 
@@ -352,7 +502,7 @@ SettingsPage {
                 Layout.fillWidth: true
                 radius: ScreenTools.defaultFontPixelWidth * 0.3
                 border.width: 1
-                border.color: qgcPal.text
+                border.color: qgcPal.groupBorder
                 color: qgcPal.windowShade
                 implicitHeight: contentRow.implicitHeight + (ScreenTools.defaultFontPixelHeight * 0.5)
 
@@ -420,7 +570,7 @@ SettingsPage {
             Layout.preferredHeight: _mapHeight
             radius: ScreenTools.defaultFontPixelWidth * 0.5
             color: qgcPal.window
-            border.color: qgcPal.text
+            border.color: qgcPal.groupBorder
             border.width: 1
             clip: true
 
@@ -487,10 +637,14 @@ SettingsPage {
                     model: zonesModel
 
                     delegate: MapCircle {
+                        // One hue per state, used for both fill and border. The fill is the same
+                        // color at low alpha, which is how the rest of QGC tints map overlays.
+                        readonly property color _zoneColor: active ? qgcPal.colorRed : qgcPal.colorOrange
+
                         center: QtPositioning.coordinate(lat, lon)
                         radius: radiusM
-                        color: active ? Qt.rgba(0.95, 0.20, 0.16, 0.18) : Qt.rgba(0.95, 0.55, 0.16, 0.12)
-                        border.color: active ? "#FF3B30" : "#BF4A4A"
+                        color: Qt.rgba(_zoneColor.r, _zoneColor.g, _zoneColor.b, active ? 0.18 : 0.12)
+                        border.color: _zoneColor
                         border.width: 2
                         visible: true
                     }
@@ -506,9 +660,9 @@ SettingsPage {
                         width: ScreenTools.defaultFontPixelWidth * 0.75
                         height: width
                         radius: width * 0.5
-                        color: "#1589FF"
+                        color: qgcPal.colorBlue
                         border.width: 1
-                        border.color: "white"
+                        border.color: qgcPal.mapWidgetBorderLight
                     }
                 }
             }

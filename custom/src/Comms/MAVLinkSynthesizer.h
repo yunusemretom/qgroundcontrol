@@ -39,6 +39,10 @@ private:
     mavlink_message_t _buildGlobalPositionInt() const;
     mavlink_message_t _buildAttitude() const;
     mavlink_message_t _buildSysStatus() const;
+
+    /// SYS_STATUS sensor words advertising operational readiness, or 0 when the
+    /// profile sets vehicle.reportsReady to false.
+    uint32_t _readyBits() const;
     mavlink_message_t _buildGpsRawInt() const;
     mavlink_message_t _buildVfrHud() const;
 

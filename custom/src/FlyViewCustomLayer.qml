@@ -65,6 +65,7 @@ Item {
         category: "CustomNoFlyZones"
 
         property string zonesJson: "[]"
+        property string maxSquareJson: ""
     }
 
     function _toNumber(value, fallback) {
@@ -185,6 +186,55 @@ Item {
 
         _zoneActivationState = nextState
         return output
+    }
+
+    function _normalizeMaxSquare() {
+        try {
+            const rawJson = (globals.customMaxSquareJson && globals.customMaxSquareJson.length > 0) ? globals.customMaxSquareJson : localNoFlySettings.maxSquareJson
+            if (!rawJson || rawJson.length === 0) {
+                return null
+            }
+
+            const parsed = JSON.parse(rawJson)
+            const lat = _toNumber(_valueForKeys(parsed, ["lat", "latitude", "centerLat"], NaN), NaN)
+            const lon = _toNumber(_valueForKeys(parsed, ["lon", "lng", "longitude", "centerLon"], NaN), NaN)
+            const radiusM = _toNumber(_valueForKeys(parsed, ["radius", "radiusM", "halfSideMeters"], NaN), NaN)
+            const active = !!_valueForKeys(parsed, ["active", "enabled"], false)
+
+            if (!isFinite(lat) || !isFinite(lon) || !isFinite(radiusM) || radiusM <= 0) {
+                return null
+            }
+
+            return {
+                lat: lat,
+                lon: lon,
+                radiusM: radiusM,
+                active: active
+            }
+        } catch (e) {
+            return null
+        }
+    }
+
+    function _computeSquarePath(centerLat, centerLon, radiusM) {
+        const earthRadiusM = 6371000.0
+        const latRad = centerLat * Math.PI / 180.0
+        const deltaLat = (radiusM / earthRadiusM) * (180.0 / Math.PI)
+        const cosLat = Math.max(0.01, Math.cos(latRad))
+        const deltaLon = (radiusM / (earthRadiusM * cosLat)) * (180.0 / Math.PI)
+
+        const north = centerLat + deltaLat
+        const south = centerLat - deltaLat
+        const east = centerLon + deltaLon
+        const west = centerLon - deltaLon
+
+        return [
+            QtPositioning.coordinate(north, west),
+            QtPositioning.coordinate(north, east),
+            QtPositioning.coordinate(south, east),
+            QtPositioning.coordinate(south, west),
+            QtPositioning.coordinate(north, west)
+        ]
     }
 
     function _normalizeBoundaryVertices() {
@@ -341,6 +391,26 @@ Item {
         }
     }
 
+    function _rebuildMaxSquareMapItem() {
+        if (!mapControl) {
+            return
+        }
+
+        _maxSquareMapObjectManager.destroyObjects()
+
+        const square = _normalizeMaxSquare()
+        if (!square || !square.active) {
+            return
+        }
+
+        const squarePolyline = _maxSquareMapObjectManager.createObject(_maxSquarePolylineComponent, mapControl, true)
+        if (!squarePolyline) {
+            return
+        }
+
+        squarePolyline.pathPoints = _computeSquarePath(square.lat, square.lon, square.radiusM)
+    }
+
     function _rebuildBoundaryMapItem() {
         if (!mapControl || !_competitionClient) {
             return
@@ -374,6 +444,7 @@ Item {
 
         _rebuildRivalMapItems()
         _rebuildNoFlyZoneMapItems()
+        _rebuildMaxSquareMapItem()
         _rebuildBoundaryMapItem()
         _syncLockStatusFromClient()
 
@@ -560,6 +631,10 @@ Item {
 
         function onCustomNoFlyZonesJsonChanged() {
             _rebuildNoFlyZoneMapItems()
+        }
+
+        function onCustomMaxSquareJsonChanged() {
+            _rebuildMaxSquareMapItem()
         }
     }
 
@@ -1121,6 +1196,10 @@ Item {
         id: _boundaryMapObjectManager
     }
 
+    QGCDynamicObjectManager {
+        id: _maxSquareMapObjectManager
+    }
+
     Component {
         id: _rivalMarkerComponent
 
@@ -1276,6 +1355,20 @@ Item {
             path:           pathPoints
             line.width:     3
             line.color:     _boundaryWarning ? "#FF3B30" : "#1589FF"
+            opacity:        0.95
+        }
+    }
+
+    Component {
+        id: _maxSquarePolylineComponent
+
+        MapPolyline {
+            property var pathPoints: []
+
+            z:              QGroundControl.zOrderMapItems + 6
+            path:           pathPoints
+            line.width:     4
+            line.color:     "#FF3B30"
             opacity:        0.95
         }
     }

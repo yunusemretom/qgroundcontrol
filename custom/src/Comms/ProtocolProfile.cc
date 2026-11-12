@@ -73,6 +73,7 @@ bool ProtocolProfile::loadFromJson(const QByteArray &json, QString *errorString)
     _sysId       = vehicle.value(QStringLiteral("sysId")).toInt(1);
     _compId      = vehicle.value(QStringLiteral("compId")).toInt(1);
     _heartbeatHz = vehicle.value(QStringLiteral("heartbeatHz")).toInt(1);
+    _reportsReady = vehicle.value(QStringLiteral("reportsReady")).toBool(true);
     if (_heartbeatHz <= 0) {
         return _fail(errorString, QStringLiteral("vehicle.heartbeatHz must be greater than zero"));
     }

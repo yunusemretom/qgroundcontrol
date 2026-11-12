@@ -10,6 +10,7 @@
 #include "ProtocolProfileTest.h"
 #include "ProtocolProfile.h"
 
+#include <QtCore/QFile>
 #include <QtTest/QTest>
 
 QByteArray ProtocolProfileTest::_minimalProfile()
@@ -271,4 +272,37 @@ void ProtocolProfileTest::_missingOptionalSectionsAreEmpty_test()
     QVERIFY(profile.passthroughFields().isEmpty());
     QVERIFY(profile.flightModeField().isEmpty());
     QVERIFY(profile.flightModeValues().isEmpty());
+}
+
+void ProtocolProfileTest::_shippedCelikKubbeProfileIsValid_test()
+{
+    QFile file(QStringLiteral(":/Custom/protocols/celik-kubbe.json"));
+    QVERIFY2(file.open(QIODevice::ReadOnly), "Shipped profile is missing from the Qt resources");
+
+    ProtocolProfile profile;
+    QString error;
+    QVERIFY2(profile.loadFromJson(file.readAll(), &error), qPrintable(error));
+
+    QCOMPARE(profile.channelNames().size(), 3);
+    QCOMPARE(profile.channel(QStringLiteral("telemetry")).port, static_cast<quint16>(5001));
+    QCOMPARE(profile.mavlinkRules().size(), 9);
+    QCOMPARE(profile.flightModeValues().size(), 3);
+    QCOMPARE(profile.passthroughFields().size(), 14);
+
+    // A fixed emplacement has no altitude of its own and no ground speed. The turret's
+    // "altitude" field is its estimate of the TARGET's altitude and "speed" is the
+    // mount's slew rate in deg/s, so neither may be mapped onto GLOBAL_POSITION_INT or
+    // VFR_HUD — doing so made the HUD assert two things that are not true of the
+    // emplacement. They belong in passthrough, labelled correctly by the turret panel.
+    const QHash<QString, MappingRule> rules = profile.mavlinkRules();
+    for (auto it = rules.constBegin(); it != rules.constEnd(); ++it) {
+        QVERIFY2(!it.key().startsWith(QStringLiteral("VFR_HUD.")),
+                 qPrintable(QStringLiteral("VFR_HUD must not be mapped for a fixed mount: %1").arg(it.key())));
+        QVERIFY2(it.key() != QStringLiteral("GLOBAL_POSITION_INT.relative_alt"),
+                 "relative_alt must not carry the target's altitude");
+    }
+
+    const QStringList passthrough = profile.passthroughFields();
+    QVERIFY(passthrough.contains(QStringLiteral("altitude")));
+    QVERIFY(passthrough.contains(QStringLiteral("speed")));
 }

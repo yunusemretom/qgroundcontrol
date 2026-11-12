@@ -24,6 +24,8 @@
         <file alias="QGroundControl/AppSettings/CustomBrandImageSettings.qml">src/AppSettings/CustomBrandImageSettings.qml</file>
         <file alias="QGroundControl/AppSettings/CustomOpsSettings.qml">src/AppSettings/CustomOpsSettings.qml</file>
         <file alias="QGroundControl/AppSettings/CustomRemoteConnectionSettings.qml">src/AppSettings/CustomRemoteConnectionSettings.qml</file>
+        <file alias="QGroundControl/AppSettings/ExternalProtocolSettings.qml">src/AppSettings/ExternalProtocolSettings.qml</file>
+        <file alias="QGroundControl/AppSettings/TurretSettings.qml">src/AppSettings/TurretSettings.qml</file>
         <file alias="QGroundControl/AppSettings/NoFlyMapSettings.qml">src/AppSettings/NoFlyMapSettings.qml</file>
         <file alias="QGroundControl/AppSettings/SettingsPagesModel.qml">src/AppSettings/SettingsPagesModel.qml</file>
         <file alias="QGroundControl/FlightDisplay/CustomGuidedActionsController.qml">src/CustomGuidedActionsController.qml</file>
@@ -37,5 +39,8 @@
     <qresource prefix="/Custom/res">
         <file alias="QGCLogoFull.svg">res/QGCLogoFull.svg</file>
         <file alias="qgroundcontrol.ico">res/icons/custom_qgroundcontrol.ico</file>
+    </qresource>
+    <qresource prefix="/Custom/protocols">
+        <file alias="celik-kubbe.json">res/protocols/celik-kubbe.json</file>
     </qresource>
 </RCC>

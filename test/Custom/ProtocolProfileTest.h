@@ -35,6 +35,7 @@ private slots:
     void _parsesMappingRuleKinds_test();
     void _parsesFlightModeValues_test();
     void _missingOptionalSectionsAreEmpty_test();
+    void _shippedCelikKubbeProfileIsValid_test();
 
 private:
     static QByteArray _minimalProfile();
