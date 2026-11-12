@@ -44,6 +44,7 @@ qt_add_library(CustomModule STATIC)
 
 set_source_files_properties(res/Custom/Widgets/CustomArtificialHorizon.qml PROPERTIES QT_RESOURCE_ALIAS CustomArtificialHorizon.qml)
 set_source_files_properties(res/Custom/Widgets/CustomAttitudeWidget.qml PROPERTIES QT_RESOURCE_ALIAS CustomAttitudeWidget.qml)
+set_source_files_properties(res/Custom/Widgets/CustomInstrumentCluster.qml PROPERTIES QT_RESOURCE_ALIAS CustomInstrumentCluster.qml)
 set_source_files_properties(res/Custom/Widgets/CustomIconButton.qml PROPERTIES QT_RESOURCE_ALIAS CustomIconButton.qml)
 set_source_files_properties(res/Custom/Widgets/CustomOnOffSwitch.qml PROPERTIES QT_RESOURCE_ALIAS CustomOnOffSwitch.qml)
 set_source_files_properties(res/Custom/Widgets/CustomQuickButton.qml PROPERTIES QT_RESOURCE_ALIAS CustomQuickButton.qml)
@@ -59,6 +60,7 @@ qt_add_qml_module(CustomModule
         res/Custom/Widgets/CustomArtificialHorizon.qml
         res/Custom/Widgets/CustomAttitudeWidget.qml
         res/Custom/Widgets/CustomIconButton.qml
+        res/Custom/Widgets/CustomInstrumentCluster.qml
         res/Custom/Widgets/CustomOnOffSwitch.qml
         res/Custom/Widgets/CustomQuickButton.qml
         res/Custom/Widgets/CustomSignalStrength.qml

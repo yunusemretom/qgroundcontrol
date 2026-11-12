@@ -30,6 +30,7 @@
         <file alias="QGroundControl/AppSettings/SettingsPagesModel.qml">src/AppSettings/SettingsPagesModel.qml</file>
         <file alias="QGroundControl/FlightDisplay/CustomGuidedActionsController.qml">src/CustomGuidedActionsController.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewCustomLayer.qml">src/FlyViewCustomLayer.qml</file>
+        <file alias="QGroundControl/FlightDisplay/TelemetryValuesBar.qml">src/FlightDisplay/TelemetryValuesBar.qml</file>
         <file alias="QGroundControl/FlightDisplay/FlyViewToolStripActionList.qml">src/FlyViewToolStripActionList.qml</file>
         <file alias="QGroundControl/Toolbar/CompetitionStatusIndicator.qml">src/Toolbar/CompetitionStatusIndicator.qml</file>
     </qresource>

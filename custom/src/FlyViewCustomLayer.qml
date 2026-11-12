@@ -689,13 +689,13 @@ Item {
         leftEdgeBottomInset:    parentToolInsets.leftEdgeBottomInset
         rightEdgeTopInset:      Math.max(parentToolInsets.rightEdgeTopInset, parent.width - _serverClockBadge.x + _toolsMargin)
         rightEdgeCenterInset:   parentToolInsets.rightEdgeCenterInset
-        rightEdgeBottomInset:   parent.width - compassBackground.x
+        rightEdgeBottomInset:   parent.width - instrumentCluster.x
         topEdgeLeftInset:       Math.max(parentToolInsets.topEdgeLeftInset, _lockStatusBadge.y + _lockStatusBadge.height + _toolsMargin)
         topEdgeCenterInset:     compassArrowIndicator.y + compassArrowIndicator.height
         topEdgeRightInset:      Math.max(parentToolInsets.topEdgeRightInset, _serverClockBadge.y + _serverClockBadge.height + _toolsMargin)
         bottomEdgeLeftInset:    parentToolInsets.bottomEdgeLeftInset
         bottomEdgeCenterInset:  parentToolInsets.bottomEdgeCenterInset
-        bottomEdgeRightInset:   parent.height - attitudeIndicator.y
+        bottomEdgeRightInset:   parent.height - instrumentCluster.y
     }
 
     // This is an example of how you can use parent tool insets to position an element on the custom fly view layer
@@ -726,8 +726,12 @@ Item {
         width:                      ScreenTools.defaultFontPixelWidth  * 50
         anchors.bottom:             parent.bottom
         anchors.bottomMargin:       _toolsMargin
-        color:                      "#DEDEDE"
-        radius:                     2
+        // Same card styling as the instrument cluster; the old light-grey strip clashed
+        // with every other overlay.
+        color:                      Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.88)
+        border.width:               1
+        border.color:               qgcPal.globalTheme === QGCPalette.Light ? Qt.rgba(0, 0, 0, 0.12) : Qt.rgba(1, 1, 1, 0.10)
+        radius:                     height / 2
         clip:                       true
         anchors.horizontalCenter:   parent.horizontalCenter
         Repeater {
@@ -743,7 +747,8 @@ Item {
                 anchors.verticalCenter: parent.verticalCenter
                 x:              visible ? ((modelData * (compassBar.width / 360)) - (width * 0.5)) : 0
                 visible:        _angle % 45 == 0
-                color:          "#75505565"
+                color:          _angle % 90 == 0 ? qgcPal.text : Qt.rgba(qgcPal.text.r, qgcPal.text.g, qgcPal.text.b, 0.55)
+                font.bold:      _angle % 90 == 0
                 font.pointSize: ScreenTools.smallFontPointSize
                 text: {
                     switch(_angle) {
@@ -766,6 +771,9 @@ Item {
         height:                     ScreenTools.defaultFontPixelHeight
         width:                      ScreenTools.defaultFontPixelWidth * 4
         color:                      qgcPal.windowShadeDark
+        radius:                     ScreenTools.defaultFontPixelHeight * 0.25
+        border.width:               1
+        border.color:               qgcPal.colorGreen
         anchors.top:                compassBar.top
         anchors.topMargin:          -headingIndicator.height / 2
         anchors.horizontalCenter:   parent.horizontalCenter
@@ -788,101 +796,27 @@ Item {
         anchors.horizontalCenter:   parent.horizontalCenter
     }
 
-    Rectangle {
-        id:                     compassBackground
-        anchors.bottom:         attitudeIndicator.bottom
-        anchors.right:          attitudeIndicator.left
-        anchors.rightMargin:    -attitudeIndicator.width / 2
-        width:                  -anchors.rightMargin + compassBezel.width + (_toolsMargin * 2)
-        height:                 attitudeIndicator.height * 0.75
-        radius:                 2
-        color:                  qgcPal.window
-
-        Rectangle {
-            id:                     compassBezel
-            anchors.verticalCenter: parent.verticalCenter
-            anchors.leftMargin:     _toolsMargin
-            anchors.left:           parent.left
-            width:                  height
-            height:                 parent.height - (northLabelBackground.height / 2) - (headingLabelBackground.height / 2)
-            radius:                 height / 2
-            border.color:           qgcPal.text
-            border.width:           1
-            color:                  Qt.rgba(0,0,0,0)
-        }
-
-        Rectangle {
-            id:                         northLabelBackground
-            anchors.top:                compassBezel.top
-            anchors.topMargin:          -height / 2
-            anchors.horizontalCenter:   compassBezel.horizontalCenter
-            width:                      northLabel.contentWidth * 1.5
-            height:                     northLabel.contentHeight * 1.5
-            radius:                     ScreenTools.defaultFontPixelWidth  * 0.25
-            color:                      qgcPal.windowShade
-
-            QGCLabel {
-                id:                 northLabel
-                anchors.centerIn:   parent
-                text:               "N"
-                color:              qgcPal.text
-                font.pointSize:     ScreenTools.smallFontPointSize
-            }
-        }
-
-        Image {
-            id:                 headingNeedle
-            anchors.centerIn:   compassBezel
-            height:             compassBezel.height * 0.75
-            width:              height
-            source:             "/custom/img/compass_needle.svg"
-            fillMode:           Image.PreserveAspectFit
-            sourceSize.height:  height
-            transform: [
-                Rotation {
-                    origin.x:   headingNeedle.width  / 2
-                    origin.y:   headingNeedle.height / 2
-                    angle:      _heading
-                }]
-        }
-
-        Rectangle {
-            id:                         headingLabelBackground
-            anchors.top:                compassBezel.bottom
-            anchors.topMargin:          -height / 2
-            anchors.horizontalCenter:   compassBezel.horizontalCenter
-            width:                      headingLabel.contentWidth * 1.5
-            height:                     headingLabel.contentHeight * 1.5
-            radius:                     ScreenTools.defaultFontPixelWidth  * 0.25
-            color:                      qgcPal.windowShade
-
-            QGCLabel {
-                id:                 headingLabel
-                anchors.centerIn:   parent
-                text:               _heading
-                color:              qgcPal.text
-                font.pointSize:     ScreenTools.smallFontPointSize
-            }
-        }
-    }
-
-    Rectangle {
-        id:                     attitudeIndicator
+    //-------------------------------------------------------------------------
+    //-- Attitude + heading, one card in the bottom-right corner
+    CustomInstrumentCluster {
+        id:                     instrumentCluster
         anchors.bottomMargin:   _toolsMargin + parentToolInsets.bottomEdgeRightInset
         anchors.rightMargin:    _toolsMargin
         anchors.bottom:         parent.bottom
         anchors.right:          parent.right
-        height:                 ScreenTools.defaultFontPixelHeight * 6
-        width:                  height
-        radius:                 height * 0.5
-        color:                  qgcPal.windowShade
 
-        CustomAttitudeWidget {
-            size:               parent.height * 0.95
-            vehicle:            _activeVehicle
-            showHeading:        false
-            anchors.centerIn:   parent
-        }
+        unit:           ScreenTools.defaultFontPixelHeight
+        valid:          !!_activeVehicle
+        roll:           _activeVehicle ? _activeVehicle.roll.rawValue  : 0
+        pitch:          _activeVehicle ? _activeVehicle.pitch.rawValue : 0
+        heading:        _heading
+        fontFamily:     ScreenTools.normalFontFamily
+        panelColor:     Qt.rgba(qgcPal.window.r, qgcPal.window.g, qgcPal.window.b, 0.88)
+        borderColor:    qgcPal.globalTheme === QGCPalette.Light ? Qt.rgba(0, 0, 0, 0.12) : Qt.rgba(1, 1, 1, 0.10)
+        textColor:      qgcPal.text
+        mutedTextColor: Qt.rgba(qgcPal.text.r, qgcPal.text.g, qgcPal.text.b, 0.6)
+        accentColor:    qgcPal.colorGreen
+        symbolColor:    qgcPal.colorYellow
     }
 
     Rectangle {
