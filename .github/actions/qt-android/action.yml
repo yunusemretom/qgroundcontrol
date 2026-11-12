@@ -81,7 +81,9 @@ runs:
       uses: jurplel/install-qt-action@v4
       with:
         version: ${{ inputs.version }}
-        host: ${{ inputs.host }}
+        # Qt now publishes Android packages under the "all_os" host; with host=linux
+        # aqtinstall finds no architectures at all.
+        host: all_os
         target: android
         arch: android_armv7
         dir: ${{ runner.temp }}
@@ -94,7 +96,9 @@ runs:
       uses: jurplel/install-qt-action@v4
       with:
         version: ${{ inputs.version }}
-        host: ${{ inputs.host }}
+        # Qt now publishes Android packages under the "all_os" host; with host=linux
+        # aqtinstall finds no architectures at all.
+        host: all_os
         target: android
         arch: android_arm64_v8a
         dir: ${{ runner.temp }}
@@ -107,7 +111,9 @@ runs:
       uses: jurplel/install-qt-action@v4
       with:
         version: ${{ inputs.version }}
-        host: ${{ inputs.host }}
+        # Qt now publishes Android packages under the "all_os" host; with host=linux
+        # aqtinstall finds no architectures at all.
+        host: all_os
         target: android
         arch: android_x86
         dir: ${{ runner.temp }}
@@ -120,7 +126,9 @@ runs:
       uses: jurplel/install-qt-action@v4
       with:
         version: ${{ inputs.version }}
-        host: ${{ inputs.host }}
+        # Qt now publishes Android packages under the "all_os" host; with host=linux
+        # aqtinstall finds no architectures at all.
+        host: all_os
         target: android
         arch: android_x86_64
         dir: ${{ runner.temp }}
