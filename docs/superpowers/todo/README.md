@@ -51,3 +51,32 @@ Durum işaretleri: ⬜ başlanmadı · 🔵 devam ediyor · ✅ bitti · ⏸️ 
   Plugin tüm generic araçlarca paylaşılıyor ve hangi link'ten geldiğini
   bilmiyor; profilden okumak çekirdek API değişikliği ister.
 - AppImage paketlemek için sistemde `patchelf` kurulu değil.
+
+## Mobil derlemeler (2026-11-12)
+
+Android ve iOS, fork'taki GitHub Actions'ta `feature/**` dallarına push edilince
+derleniyor (Android iş akışı elle de başlatılabilir).
+
+| Platform | Çıktı | Not |
+|---|---|---|
+| Android | `QGroundControl.apk`, arm64-v8a | `ANDROID_KEYSTORE_PASSWORD` gizli değişkeni yoksa iş içinde üretilen geçici anahtarla imzalanır: kurulabilir, ama her derlemede anahtar değiştiği için güncellemeden önce eski sürüm kaldırılmalı |
+| iOS | `Custom-QGroundControl.app` | İmzasız; Apple Developer hesabı ve imzalama olmadan cihaza kurulamaz. GStreamer kapalı (QGC iOS'ta desteklemiyor), seri bağlantı kapalı |
+
+Bu sırada düzeltilen ve normal derlemeyi de etkileyen sorunlar:
+
+- `libevents`, `ulog_cpp`, `zlib`, `SDL_GameControllerDB`, `qmdnsengine` dal
+  adıyla (main/master/develop) çekiliyordu → bilinen commit'lere sabitlendi.
+  Güncel `libevents` v5.0.8'in MAVLink'iyle derlenmiyordu.
+- `custom/android` kaplaması CI'da hiç uygulanmıyordu (`file(COPY)` aynı zaman
+  damgalı dosyayı atlıyor) → APK stok simge ve eski manifestle çıkıyordu.
+- Qt Android paketleri artık `all_os` altında; GStreamer Android SDK'sı
+  indirmesi kararsız → sürdürmeli indirme + SHA-256 + önbellek.
+
+Upstream'in iOS hataları (iOS iş akışı yalnızca elle tetiklendiği için birikmiş):
+dağıtım hedefi 12.0 → 16.0, `QGC_NO_SERIAL_LINK` korumasız kod
+(`QGCApplication`, `LinkManager`, GPS QML), `BluetoothLink` iOS bloğundaki
+`name()` hatası, `.mm` dosyalarının C++ PCH ile derlenmesi, SDL'nin
+`SDL_IsIPad` sembolü, yapıt yükleme yolu.
+
+Açık kalan: Android paket kimliği stok QGC ile aynı (`org.mavlink.qgroundcontrol`),
+telefonda resmi QGC ile birlikte kurulamaz.
