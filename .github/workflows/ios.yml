@@ -85,6 +85,7 @@ jobs:
         run: ${{ env.QT_ROOT_DIR }}/bin/qt-cmake -S ${{ github.workspace }} -B . -G Ninja
               -DCMAKE_BUILD_TYPE=${{ matrix.BuildType }}
               -DQT_HOST_PATH="${{ env.QT_ROOT_DIR }}/../macos"
+              -DQGC_ENABLE_GST_VIDEOSTREAMING=OFF
               -DQGC_STABLE_BUILD=${{ github.ref_type == 'tag' || contains(github.ref, 'Stable') && 'ON' || 'OFF' }}
 
       - name: Build
