@@ -94,6 +94,11 @@ private:
     void _setTelemetryVehicle(Vehicle* vehicle);
     void _disconnectTelemetryBindings();
 
+    /// True on Android/iOS, or with --fake-mobile on desktop.
+    static bool _isMobileUi();
+    /// Default UI font size for the physical screen: phones 10 pt, tablets 12 pt.
+    static int  _mobileDefaultFontPointSize();
+
 private:
     CustomOptions*  _options = nullptr;
     QQmlApplicationEngine *_qmlEngine = nullptr;

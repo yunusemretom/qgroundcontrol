@@ -722,6 +722,9 @@ Item {
     //-- Heading Indicator
     Rectangle {
         id:                         compassBar
+        // Heading is on the instrument cluster rose; on a narrow phone screen this strip
+        // collides with the telemetry values bar.
+        visible:                    !ScreenTools.isMobile
         height:                     ScreenTools.defaultFontPixelHeight * 1.5
         width:                      ScreenTools.defaultFontPixelWidth  * 50
         anchors.bottom:             parent.bottom
@@ -768,6 +771,7 @@ Item {
     }
     Rectangle {
         id:                         headingIndicator
+        visible:                    !ScreenTools.isMobile
         height:                     ScreenTools.defaultFontPixelHeight
         width:                      ScreenTools.defaultFontPixelWidth * 4
         color:                      qgcPal.windowShadeDark
@@ -786,6 +790,7 @@ Item {
     }
     Image {
         id:                         compassArrowIndicator
+        visible:                    !ScreenTools.isMobile
         height:                     _indicatorsHeight
         width:                      height
         source:                     "/custom/img/compass_pointer.svg"
@@ -805,7 +810,9 @@ Item {
         anchors.bottom:         parent.bottom
         anchors.right:          parent.right
 
-        unit:           ScreenTools.defaultFontPixelHeight
+        // The card is ~7.95 units tall (dial + footer + padding). Cap it at 40% of the view
+        // so it cannot crowd a short landscape phone screen.
+        unit:           Math.min(ScreenTools.defaultFontPixelHeight, parent.height * 0.40 / 7.95)
         valid:          !!_activeVehicle
         roll:           _activeVehicle ? _activeVehicle.roll.rawValue  : 0
         pitch:          _activeVehicle ? _activeVehicle.pitch.rawValue : 0
@@ -824,10 +831,17 @@ Item {
         visible:                _opsPanelVisible
         anchors.left:           parent.left
         anchors.top:            parent.top
-        anchors.leftMargin:     _toolsMargin
-        anchors.topMargin:      parentToolInsets.topEdgeLeftInset + _lockStatusBadge.height + (_toolsMargin * 2)
-        width:                  Math.min(ScreenTools.defaultFontPixelWidth * 40, parent.width * 0.5)
+        anchors.leftMargin:     _besideToolStrip ? parentToolInsets.leftEdgeTopInset + _toolsMargin : _toolsMargin
+        anchors.topMargin:      _besideToolStrip ? _toolsMargin : _belowToolStripTop
+        width:                  Math.min(ScreenTools.defaultFontPixelWidth * 40, parent.width * (_besideToolStrip ? 0.42 : 0.5))
         height:                 Math.min(ScreenTools.defaultFontPixelHeight * 31, parent.height - anchors.topMargin - parentToolInsets.bottomEdgeLeftInset - _toolsMargin)
+        clip:                   true
+
+        // Normally the panel hangs below the tool strip. On a short landscape screen (a
+        // phone) that leaves almost no room above the virtual joystick and the content ran
+        // off the bottom of the screen, so the panel moves beside the strip instead.
+        readonly property real _belowToolStripTop:  parentToolInsets.topEdgeLeftInset + _lockStatusBadge.height + (_toolsMargin * 2)
+        readonly property bool _besideToolStrip:    (parent.height - _belowToolStripTop - parentToolInsets.bottomEdgeLeftInset - _toolsMargin) < ScreenTools.defaultFontPixelHeight * 14
         radius:                 ScreenTools.defaultFontPixelWidth * 0.45
         color:                  Qt.rgba(0.07, 0.09, 0.12, 0.92)
         border.color:           Qt.rgba(0.22, 0.78, 0.60, 0.65)

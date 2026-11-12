@@ -22,6 +22,7 @@
 #include "Fact.h"
 #include "MultiVehicleManager.h"
 #include "Vehicle.h"
+#include "QGCApplication.h"
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 8, 0)
 #include <QtCore/QApplicationStatic>
@@ -29,6 +30,7 @@
 #include <QtCore/QList>
 #include <QtGui/QGuiApplication>
 #include <QtGui/QIcon>
+#include <QtGui/QScreen>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlFile>
 
@@ -404,10 +406,46 @@ bool CustomPlugin::adjustSettingMetaData(const QString& settingsGroup, FactMetaD
         } else if (metaData.name() == AppSettings::offlineEditingVehicleClassName) {
             metaData.setRawDefaultValue(QGCMAVLink::VehicleClassMultiRotor);
             return false;
+        } else if (metaData.name() == AppSettings::appFontPointSizeName) {
+            // Stock QGC picks 14 pt on any Android screen wider than 120 mm, i.e. every
+            // phone held in landscape. Everything scales off the font, so on a phone the
+            // tool strip, instruments and values bar crowd and overlap. Give mobile a
+            // default sized for the physical screen; it stays user-adjustable.
+            if (_isMobileUi()) {
+                metaData.setRawDefaultValue(_mobileDefaultFontPointSize());
+            }
         }
     }
 
     return parentResult;
+}
+
+bool CustomPlugin::_isMobileUi()
+{
+#if defined(Q_OS_ANDROID) || defined(Q_OS_IOS)
+    return true;
+#else
+    return qgcApp() && qgcApp()->fakeMobile();
+#endif
+}
+
+int CustomPlugin::_mobileDefaultFontPointSize()
+{
+    // Phones: short side under ~90 mm (landscape height). Tablets get a bit more.
+    constexpr int kPhonePointSize   = 10;
+    constexpr int kTabletPointSize  = 12;
+    constexpr qreal kPhoneMaxShortSideMm = 90.0;
+
+    const QScreen *const screen = QGuiApplication::primaryScreen();
+    if (!screen) {
+        return kPhonePointSize;
+    }
+    const QSizeF mm = screen->physicalSize();
+    const qreal shortSide = qMin(mm.width(), mm.height());
+    if (shortSide <= 0) {
+        return kPhonePointSize;
+    }
+    return (shortSide < kPhoneMaxShortSideMm) ? kPhonePointSize : kTabletPointSize;
 }
 
 // This modifies QGC colors palette to match possible custom corporate branding
