@@ -9,7 +9,7 @@ Başlangıç: 2026-09-03 · Taban sürüm: v5.0.8 (`Stable_V5.0` dalı)
 |---|-------|-----|-------|-------|
 | 1 | Disconnect butonu | Sınırlı | ✅ Bitti | [01-disconnect-butonu.md](01-disconnect-butonu.md) |
 | 2 | Menü / palet renk uyumu | Sınırlı | ✅ Bitti | [02-renk-uyumu.md](02-renk-uyumu.md) |
-| 3 | Genel protokol köprüsü (Çelik Kubbe) | Mimari | 🔵 Kod tamam, 84 test geçiyor; GUI doğrulaması sizde | [03-protokol-koprusu.md](03-protokol-koprusu.md) |
+| 3 | Genel protokol köprüsü (Çelik Kubbe) | Mimari | ✅ Aşama A/B/C tamam, testli; donanım denemesi sizde | [03-protokol-koprusu.md](03-protokol-koprusu.md) |
 | 4 | v5.1.4 yükseltme hazırlık raporu | Doküman | ✅ Bitti | [04-surum-yukseltme-hazirlik.md](04-surum-yukseltme-hazirlik.md) |
 
 Durum işaretleri: ⬜ başlanmadı · 🔵 devam ediyor · ✅ bitti · ⏸️ beklemede
@@ -30,20 +30,24 @@ Durum işaretleri: ⬜ başlanmadı · 🔵 devam ediyor · ✅ bitti · ⏸️ 
   `QGCCorePlugin` API'si değişmiş, `custom/` port gerektiriyor. Paket 4 bunun
   hazırlık raporunu üretecek, uygulama sonraya kalacak.
 
-## Yolda bulunan, kapsam dışı hatalar
+## Yolda bulunan hatalar — ✅ düzeltildi (2026-11-12)
 
-Doğrulama sırasında sizin kaydedilmemiş çalışmanızda iki gerçek hata çıktı.
-**Dokunmadım** — sizin aktif olarak üzerinde çalıştığınız kod:
+- `globals.customMaxSquareJson` tanımlı değildi (`MainWindow.qml`); maksimum
+  alan özelliği canlı güncellenmiyordu ve `onCustomMaxSquareJsonChanged` hiç
+  çalışmıyordu. Özellik eklendi.
+- `FlyViewToolStripActionList.qml` `QtQml` import etmiyordu; `QtObject`
+  tanınmadığı için **ana pencere hiç yüklenmiyordu**.
+- `CompetitionServerClient`: eksik alan `Null` dönüyordu, kontrol `Undefined`
+  bekliyordu → kilit durumu her pakette sıfırlanıyordu. Ayrıca satır sonu
+  gelmeyen veri sınırsız tamponlanıyordu (NDJSON codec'te de).
+- `mav.tlog` / `mav.tlog.raw` artık git tarafından izlenmiyor (`.gitignore`).
+  Geçmişten silinmedi — bu geri alınamaz bir işlem, karar sizin.
 
-1. `globals` nesnesi (`src/UI/MainWindow.qml:85`) `customNoFlyZonesJson`
-   tanımlıyor ama **`customMaxSquareJson` tanımlamıyor**. Oysa
-   `NoFlyMapSettings.qml` (5 yer) ve `FlyViewCustomLayer.qml` (1 yer) onu
-   kullanıyor. Sonuç: yazma denemesi `Cannot assign to non-existent property`
-   hatası veriyor, okuma `undefined` dönüyor, yani "maksimum alan" özelliği
-   sessizce hep yerel ayara düşüyor ve canlı güncellenmiyor.
-   **Tek satırlık düzeltme:** `MainWindow.qml:85` civarına
-   `property string customMaxSquareJson: ""` eklemek.
+## Açık kalanlar
 
-2. `FlyViewCustomLayer.qml:629` — `Connections` içinde
-   `onCustomMaxSquareJsonChanged` işleyicisi var ama hedefte o isimde sinyal
-   yok, yani hiç çalışmıyor. (1) düzeltilirse bu da düzelir.
+- Marka görselleri hâlâ örnek projedeki `dronecode-*.svg`; takım logosu
+  repoda yok, eklenince `CustomPlugin::brandImageIndoor/Outdoor` güncellenmeli.
+- `TurretFirmwarePlugin` uçuş modu adlarını sabit tutuyor (profille aynı).
+  Plugin tüm generic araçlarca paylaşılıyor ve hangi link'ten geldiğini
+  bilmiyor; profilden okumak çekirdek API değişikliği ister.
+- AppImage paketlemek için sistemde `patchelf` kurulu değil.

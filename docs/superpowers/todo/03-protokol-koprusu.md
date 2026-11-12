@@ -1,6 +1,6 @@
 # 03 — Genel protokol köprüsü (Çelik Kubbe taret)
 
-**Tip:** Mimari · **Durum:** 🔵 Aşama A bitti, Aşama B/C bekleniyor
+**Tip:** Mimari · **Durum:** ✅ Aşama A/B/C kodu ve testleri tamam; donanımla deneme sizde
 
 Bu paket kendi tasarım dokümanını ve uygulama planını alacak:
 `docs/superpowers/specs/2026-09-03-protokol-koprusu-design.md`
@@ -56,14 +56,33 @@ bir `LinkInterface`. Repo içinde kanıtlanmış desen.
 - [x] Task 7 · Çelik Kubbe profili + uçtan uca doğrulama
 - [x] Task 8 · Uçuş modu isimleri (`TurretFirmwarePlugin`)
 
-### Aşama B — komut kanalı (plan yazılmadı)
+### Aşama B — komut kanalı (✅ Tamamlandı)
 
-- [ ] `TcpProtocolChannel`, `NdjsonCodec`, `CommandTranslator`, ACK işleme
-- [ ] Arm/disarm ve mod değiştirme
+- [x] `TcpProtocolChannel`, `NdjsonCodec`, `CommandTranslator`, ACK işleme
+- [x] Arm/disarm ve mod değiştirme (`SET_MODE` ve `MAV_CMD_DO_SET_MODE`)
+- [x] Komutlar profilin `commands` şablonlarından; `{value}` yerleştirme,
+      `id`/`timestamp` ekleme, ACK'i hem `id` hem `cmd` ile eşleme
+- [x] İletilemeyen komuta QGC'ye anında ACK (UNSUPPORTED / FAILED / DENIED)
 
-### Aşama C — joystick (plan yazılmadı)
+### Aşama C — joystick (✅ Tamamlandı)
 
-- [ ] `CsvCodec`, 50 Hz hız sınırlama, failsafe durdurma paketi
+- [x] `CsvCodec`, profil `template` / `failsafe` / `rateHz`
+- [x] Hız sınırı en yeni kareyi bekletip gönderiyor — "kol ortada" karesi
+      hiçbir zaman düşmüyor
+- [x] Link kapanırken profilin failsafe karesi gönderiliyor
+
+### Revizyon (2026-11-12)
+
+Kod incelemesinde bulunup düzeltilenler, her biri testli:
+
+- Telemetri zaman aşımından sonra heartbeat geri gelmiyordu.
+- Sentezlenen MAVLink, QGC'nin kanalını paylaşıyordu → sahte paket kaybı.
+  Artık MockLink gibi ayrı bir yardımcı kanal kullanılıyor.
+- QGC `bytesReceived` içinde senkron yanıt verince yayınlar iç içe giriyor ve
+  sonraki dinleyicilere ters sırada ulaşıyordu → FIFO kuyruğu.
+- `TcpProtocolChannel`: `close()` sonrası kendiliğinden yeniden bağlanma,
+  kapanırken GUI'yi 500 ms dondurma, zaman aşımı sinyalinin sürekli tekrarı.
+- Profildeki `mavType` artık heartbeat'te; bilinmeyen tip profil hatası.
 
 ## Planlama sırasında çıkan önemli bulgu
 
