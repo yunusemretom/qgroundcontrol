@@ -20,7 +20,7 @@ public:
     QList<QJsonObject> decode(const QByteArray &bytes) override;
     QByteArray encode(const QJsonObject &object) override;
 
-    int malformedCount() const { return _malformedCount; }
+    int malformedCount() const override { return _malformedCount; }
     int bufferedBytes() const { return static_cast<int>(_buffer.size()); }
 
     /// Longest line accepted. A peer that sends more without a newline is broken or

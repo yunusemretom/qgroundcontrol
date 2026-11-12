@@ -87,6 +87,17 @@ CPMAddPackage(
 target_compile_definitions(SDL2-static PRIVATE SDL_MAIN_HANDLED)
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE SDL2::SDL2-static)
 
+if(IOS)
+    # SDL_IsIPad() is part of SDL's UIKit video backend, which SDL_VIDEO OFF leaves out,
+    # but SDL_IsTablet() still references it. See SDLiOSShim.mm.
+    target_sources(${CMAKE_PROJECT_NAME} PRIVATE SDLiOSShim.mm)
+    # Objective-C++ cannot use the target's C++ precompiled header.
+    set_source_files_properties(SDLiOSShim.mm
+        TARGET_DIRECTORY ${CMAKE_PROJECT_NAME}
+        PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+    )
+endif()
+
 # Default list of config overrides - TODO: Add to Custom Build Options
 # set(ENV{SDL_GAMECONTROLLERCONFIG}
 #   "0300000009120000544f000011010000,OpenTX Radiomaster TX16S Joystick,leftx:a3,lefty:a2,rightx:a0,righty:a1,platform:Linux"
