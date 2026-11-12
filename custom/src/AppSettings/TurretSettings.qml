@@ -121,8 +121,8 @@ SettingsPage {
                 spacing:          ScreenTools.defaultFontPixelWidth
 
                 Rectangle {
-                    width:              ScreenTools.defaultFontPixelHeight * 0.6
-                    height:             width
+                    Layout.preferredWidth:  ScreenTools.defaultFontPixelHeight * 0.6
+                    Layout.preferredHeight: Layout.preferredWidth
                     radius:             width / 2
                     Layout.alignment:   Qt.AlignVCenter
                     color:              modelData.open ? qgcPal.colorGreen : qgcPal.colorGrey

@@ -936,8 +936,8 @@ Item {
                     color: _checklistReadyForFlight ? Qt.rgba(0.15, 0.75, 0.35, 0.22) : Qt.rgba(0.97, 0.57, 0.12, 0.22)
                     border.width: 1
                     border.color: _checklistReadyForFlight ? "#27D17C" : "#F7A645"
-                    width: statusText.contentWidth + ScreenTools.defaultFontPixelWidth
-                    height: statusText.contentHeight + ScreenTools.defaultFontPixelHeight * 0.4
+                    Layout.preferredWidth: statusText.contentWidth + ScreenTools.defaultFontPixelWidth
+                    Layout.preferredHeight: statusText.contentHeight + ScreenTools.defaultFontPixelHeight * 0.4
 
                     QGCLabel {
                         id: statusText
@@ -965,7 +965,7 @@ Item {
                     color: Qt.rgba(0.10, 0.12, 0.16, 0.88)
                     border.width: 1
                     border.color: Qt.rgba(1, 1, 1, 0.10)
-                    height: vehicleInfoLabel.contentHeight + ScreenTools.defaultFontPixelHeight * 0.7
+                    Layout.preferredHeight: vehicleInfoLabel.contentHeight + ScreenTools.defaultFontPixelHeight * 0.7
 
                     QGCLabel {
                         id: vehicleInfoLabel
@@ -982,7 +982,7 @@ Item {
                     color: Qt.rgba(0.10, 0.12, 0.16, 0.88)
                     border.width: 1
                     border.color: Qt.rgba(1, 1, 1, 0.10)
-                    height: modeInfoLabel.contentHeight + ScreenTools.defaultFontPixelHeight * 0.7
+                    Layout.preferredHeight: modeInfoLabel.contentHeight + ScreenTools.defaultFontPixelHeight * 0.7
 
                     QGCLabel {
                         id: modeInfoLabel
@@ -1105,8 +1105,8 @@ Item {
                                         color: Qt.rgba(0.95, 0.23, 0.23, 0.22)
                                         border.width: 1
                                         border.color: Qt.rgba(1, 0.28, 0.28, 0.45)
-                                        width: deleteText.contentWidth + ScreenTools.defaultFontPixelWidth * 0.8
-                                        height: deleteText.contentHeight + ScreenTools.defaultFontPixelHeight * 0.45
+                                        Layout.preferredWidth: deleteText.contentWidth + ScreenTools.defaultFontPixelWidth * 0.8
+                                        Layout.preferredHeight: deleteText.contentHeight + ScreenTools.defaultFontPixelHeight * 0.45
 
                                         QGCLabel {
                                             id: deleteText
@@ -1175,7 +1175,7 @@ Item {
 
                         Rectangle {
                             Layout.fillWidth: true
-                            height: 1
+                            Layout.preferredHeight: 1
                             color: Qt.rgba(1, 1, 1, 0.08)
                         }
                     }
