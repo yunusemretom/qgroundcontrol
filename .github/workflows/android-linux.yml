@@ -1,10 +1,12 @@
 name: Android-Linux
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
       - 'Stable*'
+      - 'feature/**'
     tags:
       - 'v*'
     paths-ignore:
@@ -39,11 +41,17 @@ jobs:
       ARTIFACT: QGroundControl.apk
       PACKAGE: QGroundControl
       QT_VERSION: 6.8.3
-      QT_ANDROID_KEYSTORE_PATH: ${{ github.workspace }}/deploy/android/android_release.keystore
-      QT_ANDROID_KEYSTORE_ALIAS: QGCAndroidKeyStore
-      QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      QT_ANDROID_ABIS: ${{ matrix.BuildType == 'Release' && 'armeabi-v7a;arm64-v8a' || 'arm64-v8a' }}
+      # With the ANDROID_KEYSTORE_PASSWORD secret: the repository release keystore.
+      # Without it (forks): a throwaway keystore made in the job, so the APK is still
+      # signed and installable. Its key changes every run, so updating an installed
+      # build needs an uninstall first.
+      QT_ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' && format('{0}/deploy/android/android_release.keystore', github.workspace) || format('{0}/ci-throwaway.keystore', runner.temp) }}
+      QT_ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' && 'QGCAndroidKeyStore' || 'qgcci' }}
+      QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'qgc-ci-throwaway' }}
+      QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'qgc-ci-throwaway' }}
+      QT_ANDROID_HAS_RELEASE_KEY: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
+      # Both ABIs only for tagged releases; branch builds are arm64-only to halve the time.
+      QT_ANDROID_ABIS: ${{ github.ref_type == 'tag' && 'armeabi-v7a;arm64-v8a' || 'arm64-v8a' }}
 
     steps:
       - name: Checkout repo
@@ -77,6 +85,13 @@ jobs:
           version: ${{ env.QT_VERSION }}
           abis: ${{ env.QT_ANDROID_ABIS }}
           cpm-modules: ${{ runner.temp }}/shadow_build_dir/cpm_modules
+
+      - name: Create throwaway signing keystore
+        if: env.QT_ANDROID_HAS_RELEASE_KEY != 'true'
+        run: keytool -genkeypair -v -keystore "$QT_ANDROID_KEYSTORE_PATH" -alias "$QT_ANDROID_KEYSTORE_ALIAS"
+              -keyalg RSA -keysize 2048 -validity 3650
+              -storepass "$QT_ANDROID_KEYSTORE_STORE_PASS" -keypass "$QT_ANDROID_KEYSTORE_KEY_PASS"
+              -dname "CN=QGC CI throwaway, O=CI"
 
       - name: Configure
         working-directory: ${{ runner.temp }}/shadow_build_dir

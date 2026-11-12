@@ -2,6 +2,11 @@ name: iOS
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - 'feature/**'
+    paths-ignore:
+      - 'docs/**'
 
 # concurrency:
 #   group: ${{ github.workflow }}-${{ github.ref }}
