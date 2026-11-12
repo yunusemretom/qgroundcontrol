@@ -33,13 +33,7 @@ endif()
 
 # set(CMAKE_OSX_ARCHITECTURES "arm64")
 # set(CMAKE_OSX_SYSROOT "iphoneos")
-if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
-    # Qt 6.8 supports iOS 16 and later, and its headers use std::filesystem, which does
-    # not exist before iOS 13. With the macOS value below every target failed to compile
-    # for iOS (the XCODE_ATTRIBUTE_* deployment target further down only applies to the
-    # Xcode generator, not to the Ninja builds CI uses).
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "16.0")
-elseif(APPLE)
+if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 endif()
 
@@ -51,6 +45,15 @@ project(${QGC_APP_NAME}
     HOMEPAGE_URL ${QGC_ORG_DOMAIN}
     LANGUAGES C CXX
 )
+
+if(IOS)
+    # The block above runs before project(), when the iOS toolchain has not been loaded
+    # yet, so iOS builds inherited the macOS 12.0 target and failed on Qt's headers
+    # ("'path' is unavailable: introduced in iOS 13.0"). Qt 6.8 supports iOS 16 and
+    # later. CMake reads this when generating build rules, so setting it here applies.
+    # (The XCODE_ATTRIBUTE_* deployment target further down only affects Xcode builds.)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "16.0")
+endif()
 
 if(APPLE AND NOT IOS)
     set(MACOS TRUE)
