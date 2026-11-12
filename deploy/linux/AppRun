@@ -19,4 +19,6 @@ export GST_PLUGIN_PATH="${APPDIR}/usr/lib/gstreamer-1.0"
 
 # export QT_QPA_PLATFORM="wayland;xcb"
 
-exec "${APPDIR}/usr/bin/QGroundControl" "$@"
+# Filled in by configure_file (cmake/Install.cmake) with the real executable name,
+# which custom builds change through QGC_APP_NAME.
+exec "${APPDIR}/usr/bin/@CMAKE_PROJECT_NAME@" "$@"

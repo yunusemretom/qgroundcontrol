@@ -1,10 +1,12 @@
 name: Windows
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
       - 'Stable*'
+      - 'feature/**'
     tags:
       - 'v*'
     paths-ignore:
@@ -36,6 +38,8 @@ jobs:
 
     env:
       ARTIFACT: QGroundControl-installer.exe
+      # Must match QGC_APP_NAME (custom/cmake/CustomOverrides.cmake for custom builds).
+      APP_NAME: Custom-QGroundControl
       PACKAGE: QGroundControl-installer
       QT_VERSION: 6.8.3
       GST_VERSION: 1.22.12
@@ -125,11 +129,22 @@ jobs:
       - name: Sanity check release excecutable
         if: matrix.BuildType == 'Release'
         working-directory: ${{ runner.temp }}\shadow_build_dir\Release
-        run: QGroundControl.exe --simple-boot-test
+        run: ${{ env.APP_NAME }}.exe --simple-boot-test
 
       - name: Install
         working-directory: ${{ runner.temp }}\shadow_build_dir
         run: cmake --install . --config ${{ matrix.BuildType }}
+
+      # The installer is named after the app (<APP_NAME>-installer.exe); give it the
+      # fixed name the upload step expects.
+      - name: Normalise installer name
+        working-directory: ${{ runner.temp }}\shadow_build_dir
+        shell: bash
+        run: |
+          if [ ! -f "$ARTIFACT" ]; then
+            mv "${APP_NAME}-installer.exe" "$ARTIFACT"
+          fi
+          ls -la "$ARTIFACT"
 
       - name: Upload Build File
         if: matrix.BuildType == 'Release'

@@ -1,10 +1,12 @@
 name: Linux
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - master
       - 'Stable*'
+      - 'feature/**'
     tags:
       - 'v*'
     paths-ignore:
@@ -29,7 +31,9 @@ jobs:
 
     strategy:
       matrix:
-        BuildType: [Debug, Release]
+        # Feature branches only need the shippable build; Debug + the full unit test
+        # run adds ~40 minutes and is covered locally.
+        BuildType: ${{ fromJSON(startsWith(github.ref, 'refs/heads/feature/') && '["Release"]' || '["Debug", "Release"]') }}
         # Arch: [x64] # Arm64
 
     defaults:
@@ -38,6 +42,8 @@ jobs:
 
     env:
       ARTIFACT: QGroundControl-x86_64.AppImage
+      # Must match QGC_APP_NAME (custom/cmake/CustomOverrides.cmake for custom builds).
+      APP_NAME: Custom-QGroundControl
       PACKAGE: QGroundControl-x86_64
       QT_VERSION: 6.8.3
 
@@ -105,6 +111,16 @@ jobs:
       - name: Create AppImage
         working-directory: ${{ runner.temp }}/shadow_build_dir
         run: cmake --install . --config ${{ matrix.BuildType }}
+
+      # appimagetool names the file after the desktop entry (the app name); give it the
+      # fixed name the later steps expect.
+      - name: Normalise AppImage name
+        working-directory: ${{ runner.temp }}/shadow_build_dir
+        run: |
+          if [ ! -f "$ARTIFACT" ]; then
+            mv "${APP_NAME}-x86_64.AppImage" "$ARTIFACT"
+          fi
+          ls -la "$ARTIFACT"
 
       - name: Sanity check release excecutable
         if: matrix.BuildType == 'Release'

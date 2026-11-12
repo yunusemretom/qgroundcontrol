@@ -59,10 +59,15 @@ elseif(LINUX)
         FILES ${CMAKE_BINARY_DIR}/metainfo/org.mavlink.qgroundcontrol.metainfo.xml
         DESTINATION ${CMAKE_INSTALL_DATADIR}/metainfo/
     )
-    install(
-        FILES ${CMAKE_SOURCE_DIR}/deploy/linux/AppRun
-        DESTINATION ${CMAKE_BINARY_DIR}
+    # AppRun and CreateAppImage used to hard-code "QGroundControl" as the executable,
+    # so custom builds (QGC_APP_NAME) could not produce an AppImage.
+    configure_file(
+        ${CMAKE_SOURCE_DIR}/deploy/linux/AppRun
+        ${CMAKE_BINARY_DIR}/AppRun
+        @ONLY
+        FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
     )
+    install(CODE "set(CMAKE_PROJECT_NAME ${CMAKE_PROJECT_NAME})")
     install(SCRIPT "${CMAKE_SOURCE_DIR}/cmake/CreateAppImage.cmake")
 elseif(WIN32)
     install(CODE "set(CMAKE_PROJECT_NAME ${CMAKE_PROJECT_NAME})")
