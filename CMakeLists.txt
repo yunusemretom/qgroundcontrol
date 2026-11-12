@@ -33,7 +33,13 @@ endif()
 
 # set(CMAKE_OSX_ARCHITECTURES "arm64")
 # set(CMAKE_OSX_SYSROOT "iphoneos")
-if(APPLE)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
+    # Qt 6.8 supports iOS 16 and later, and its headers use std::filesystem, which does
+    # not exist before iOS 13. With the macOS value below every target failed to compile
+    # for iOS (the XCODE_ATTRIBUTE_* deployment target further down only applies to the
+    # Xcode generator, not to the Ninja builds CI uses).
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "16.0")
+elseif(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 endif()
 
@@ -390,7 +396,7 @@ elseif(APPLE)
 
         # set(CMAKE_XCODE_ATTRIBUTE_ARCHS
         # set(CMAKE_XCODE_ATTRIBUTE_ENABLE_BITCODE
-        set(CMAKE_XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "14.0")
+        set(CMAKE_XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "16.0")
         set(CMAKE_XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2") # iPhone,iPad
         set(CMAKE_XCODE_ATTRIBUTE_INFOPLIST_FILE "${CMAKE_SOURCE_DIR}/deploy/ios/iOS-Info.plist")
 
@@ -402,7 +408,7 @@ elseif(APPLE)
                 XCODE_ATTRIBUTE_CURRENT_PROJECT_VERSION ${CMAKE_PROJECT_VERSION}
                 XCODE_ATTRIBUTE_MARKETING_VERSION "${CMAKE_PROJECT_VERSION_MAJOR}.${CMAKE_PROJECT_VERSION_MINOR}"
                 XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
-                XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "14.0"
+                XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET "16.0"
                 XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2" # iPhone,iPad
                 XCODE_ATTRIBUTE_INFOPLIST_KEY_CFBundleDisplayName ${CMAKE_PROJECT_NAME}
                 XCODE_ATTRIBUTE_INFOPLIST_KEY_LSApplicationCategoryType "public.app-category.mycategory"
