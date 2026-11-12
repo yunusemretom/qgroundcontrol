@@ -99,8 +99,9 @@ jobs:
       # The 440 MB GStreamer SDK often fails mid-download from freedesktop.org (HTTP 503,
       # HTTP/2 stream resets), and CPM gives up on the first error. Fetch it here with
       # retries and resume, verify it, cache it, and hand CMake the extracted tree.
-      - name: Cache GStreamer for Android
-        uses: actions/cache@v4
+      - name: Restore GStreamer for Android
+        id: gst-cache
+        uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/gstreamer-android.tar.xz
           key: gstreamer-android-${{ env.GST_ANDROID_VERSION }}
@@ -125,6 +126,15 @@ jobs:
           case "$QT_ANDROID_ABIS" in *armeabi-v7a*) dirs="$dirs armv7" ;; esac
           mkdir -p "$RUNNER_TEMP/gstreamer-android"
           tar -xJf "$archive" -C "$RUNNER_TEMP/gstreamer-android" $dirs
+
+      # Saved straight away rather than at job end, so a later build failure does not
+      # throw away a 440 MB download.
+      - name: Save GStreamer for Android
+        if: steps.gst-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/gstreamer-android.tar.xz
+          key: gstreamer-android-${{ env.GST_ANDROID_VERSION }}
 
       - name: Configure
         working-directory: ${{ runner.temp }}/shadow_build_dir
