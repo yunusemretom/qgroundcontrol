@@ -45,7 +45,7 @@ jobs:
       # Without it (forks): a throwaway keystore made in the job, so the APK is still
       # signed and installable. Its key changes every run, so updating an installed
       # build needs an uninstall first.
-      QT_ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' && format('{0}/deploy/android/android_release.keystore', github.workspace) || format('{0}/ci-throwaway.keystore', runner.temp) }}
+      QT_ANDROID_KEYSTORE_PATH: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' && format('{0}/deploy/android/android_release.keystore', github.workspace) || format('{0}/ci-throwaway.keystore', github.workspace) }}
       QT_ANDROID_KEYSTORE_ALIAS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' && 'QGCAndroidKeyStore' || 'qgcci' }}
       QT_ANDROID_KEYSTORE_STORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'qgc-ci-throwaway' }}
       QT_ANDROID_KEYSTORE_KEY_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD || 'qgc-ci-throwaway' }}
