@@ -52,6 +52,9 @@ jobs:
       QT_ANDROID_HAS_RELEASE_KEY: ${{ secrets.ANDROID_KEYSTORE_PASSWORD != '' }}
       # Both ABIs only for tagged releases; branch builds are arm64-only to halve the time.
       QT_ANDROID_ABIS: ${{ github.ref_type == 'tag' && 'armeabi-v7a;arm64-v8a' || 'arm64-v8a' }}
+      # Must match GStreamer_FIND_VERSION in cmake/find-modules/FindGStreamer.cmake.
+      GST_ANDROID_VERSION: 1.22.12
+      GST_ANDROID_SHA256: be92cf477d140c270b480bd8ba0e26b1e01c8db042c46b9e234d87352112e485
 
     steps:
       - name: Checkout repo
@@ -93,6 +96,36 @@ jobs:
               -storepass "$QT_ANDROID_KEYSTORE_STORE_PASS" -keypass "$QT_ANDROID_KEYSTORE_KEY_PASS"
               -dname "CN=QGC CI throwaway, O=CI"
 
+      # The 440 MB GStreamer SDK often fails mid-download from freedesktop.org (HTTP 503,
+      # HTTP/2 stream resets), and CPM gives up on the first error. Fetch it here with
+      # retries and resume, verify it, cache it, and hand CMake the extracted tree.
+      - name: Cache GStreamer for Android
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/gstreamer-android.tar.xz
+          key: gstreamer-android-${{ env.GST_ANDROID_VERSION }}
+
+      - name: Fetch GStreamer for Android
+        run: |
+          archive="$RUNNER_TEMP/gstreamer-android.tar.xz"
+          url="https://gstreamer.freedesktop.org/data/pkg/android/$GST_ANDROID_VERSION/gstreamer-1.0-android-universal-$GST_ANDROID_VERSION.tar.xz"
+          if [ ! -s "$archive" ] || ! echo "$GST_ANDROID_SHA256  $archive" | sha256sum -c --quiet; then
+            # Each attempt resumes from whatever the previous one wrote.
+            for attempt in 1 2 3 4 5 6 7 8 9 10; do
+              if curl --fail --location --http1.1 --continue-at - --output "$archive" "$url"; then
+                break
+              fi
+              echo "GStreamer download attempt $attempt failed; retrying"
+              sleep 15
+            done
+          fi
+          echo "$GST_ANDROID_SHA256  $archive" | sha256sum -c
+          dirs=""
+          case "$QT_ANDROID_ABIS" in *arm64-v8a*)   dirs="$dirs arm64" ;; esac
+          case "$QT_ANDROID_ABIS" in *armeabi-v7a*) dirs="$dirs armv7" ;; esac
+          mkdir -p "$RUNNER_TEMP/gstreamer-android"
+          tar -xJf "$archive" -C "$RUNNER_TEMP/gstreamer-android" $dirs
+
       - name: Configure
         working-directory: ${{ runner.temp }}/shadow_build_dir
         run: ${{ env.QT_ROOT_DIR }}/bin/qt-cmake -S ${{ github.workspace }} -B . -G Ninja
@@ -100,6 +133,7 @@ jobs:
               -DCMAKE_WARN_DEPRECATED=FALSE
               -DQT_ANDROID_ABIS="${{ env.QT_ANDROID_ABIS }}"
               -DQT_ANDROID_BUILD_ALL_ABIS=OFF
+              -DCPM_gstreamer_SOURCE="${{ runner.temp }}/gstreamer-android"
               -DQT_HOST_PATH="${{ env.QT_ROOT_DIR }}/../gcc_64"
               -DQT_ANDROID_SIGN_APK=${{ env.QT_ANDROID_KEYSTORE_STORE_PASS != '' && 'ON' || 'OFF' }}
               -DQT_DEBUG_FIND_PACKAGE=ON
