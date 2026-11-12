@@ -17,7 +17,16 @@ if(ANDROID)
             set(DEFAULT_ANDROID_DIR "${CMAKE_SOURCE_DIR}/android")
             set(FINAL_ANDROID_DIR "${CMAKE_BINARY_DIR}/custom/android")
             file(COPY "${DEFAULT_ANDROID_DIR}/." DESTINATION "${FINAL_ANDROID_DIR}")
-            file(COPY "${CUSTOM_ANDROID_DIR}/." DESTINATION "${FINAL_ANDROID_DIR}")
+            # Not file(COPY): it skips a file whose destination has the same timestamp,
+            # and a fresh checkout gives the stock and custom files identical mtimes, so
+            # on CI the custom manifest and icons were silently dropped in favour of the
+            # stock ones just copied. COPY_FILE always writes.
+            file(GLOB_RECURSE CUSTOM_ANDROID_OVERLAY RELATIVE "${CUSTOM_ANDROID_DIR}" "${CUSTOM_ANDROID_DIR}/*")
+            foreach(overlay_file IN LISTS CUSTOM_ANDROID_OVERLAY)
+                get_filename_component(overlay_dir "${FINAL_ANDROID_DIR}/${overlay_file}" DIRECTORY)
+                file(MAKE_DIRECTORY "${overlay_dir}")
+                file(COPY_FILE "${CUSTOM_ANDROID_DIR}/${overlay_file}" "${FINAL_ANDROID_DIR}/${overlay_file}")
+            endforeach()
             set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
                             "${DEFAULT_ANDROID_DIR}/"
                             "${CUSTOM_ANDROID_DIR}/"
