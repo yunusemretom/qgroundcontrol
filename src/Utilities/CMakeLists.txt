@@ -32,6 +32,13 @@ elseif(IOS)
             MobileScreenMgr.mm
             MobileScreenMgr.h
     )
+    # The target's precompiled header is built as C++; an Objective-C++ file cannot use
+    # it ("Objective-C was disabled in precompiled file"). TARGET_DIRECTORY because the
+    # target is defined in the top-level directory, where source properties are read.
+    set_source_files_properties(MobileScreenMgr.mm
+        TARGET_DIRECTORY ${CMAKE_PROJECT_NAME}
+        PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+    )
 endif()
 
 target_include_directories(${CMAKE_PROJECT_NAME}
