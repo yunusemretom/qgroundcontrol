@@ -97,4 +97,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.PACKAGE }}
-          path: ${{ runner.temp }}/shadow_build_dir/*.app
+          # The bundle is built into a per-config subdirectory (Release/...), so the old
+          # shadow_build_dir/*.app glob matched nothing and the job "passed" with no artifact.
+          path: ${{ runner.temp }}/shadow_build_dir/${{ matrix.BuildType }}/*.app
+          if-no-files-found: error
