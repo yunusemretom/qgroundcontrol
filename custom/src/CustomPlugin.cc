@@ -27,6 +27,8 @@
 #include <QtCore/QApplicationStatic>
 #endif
 #include <QtCore/QList>
+#include <QtGui/QGuiApplication>
+#include <QtGui/QIcon>
 #include <QtQml/QQmlApplicationEngine>
 #include <QtQml/QQmlFile>
 
@@ -101,6 +103,9 @@ QGCCorePlugin *CustomPlugin::instance()
 
 void CustomPlugin::init()
 {
+    // QGCApplication sets the stock QGC icon from core resources; replace it with the team's.
+    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/custom/img/toy-icon.png")));
+
     _competitionSettings = new CompetitionSettings(this);
     _competitionServerClient = new CompetitionServerClient(this);
 
@@ -367,12 +372,12 @@ QObject* CustomPlugin::competitionServerClient(void) const
 
 QString CustomPlugin::brandImageIndoor(void) const
 {
-    return QStringLiteral("/custom/img/dronecode-white.svg");
+    return QStringLiteral("/custom/img/toy-logo-white.png");   // dark theme
 }
 
 QString CustomPlugin::brandImageOutdoor(void) const
 {
-    return QStringLiteral("/custom/img/dronecode-black.svg");
+    return QStringLiteral("/custom/img/toy-logo-dark.png");    // light theme
 }
 
 bool CustomPlugin::overrideSettingsGroupVisibility(const QString &name)
