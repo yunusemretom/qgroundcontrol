@@ -19,17 +19,24 @@
 #include "NdjsonCodec.h"
 #include "ProtocolProfile.h"
 
+#include <QtCore/QElapsedTimer>
+#include <QtCore/QHash>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QScopedPointer>
 #include <QtCore/QVariantMap>
 
 class QTimer;
+class ProtocolChannel;
 class UdpProtocolChannel;
-class TcpProtocolChannel;
 
 Q_DECLARE_LOGGING_CATEGORY(ExternalProtocolLinkLog)
 
-/// Reads telemetry and sends outgoing commands/joystick control.
+/// Presents a profile-described device to QGC as a MAVLink vehicle.
+///
+/// Every channel the profile declares is opened: the telemetry source feeds the MAVLink
+/// synthesizer, "out" channels carry commands (NDJSON over TCP or UDP) and joystick frames
+/// (the "joystick" channel, or the first "csv" one). Which channel a command uses, and the
+/// JSON it is built from, come from the profile's "commands" section.
 class ExternalProtocolLink : public LinkInterface
 {
     Q_OBJECT
@@ -71,9 +78,9 @@ signals:
 
 private slots:
     void _onFramesReceived(const QByteArray &bytes);
-    void _onCommandResponseReceived(const QByteArray &bytes);
     void _onChannelTimedOut();
     void _sendHeartbeat();
+    void _flushPendingJoystickFrame();
 
 private:
     bool _connect() final;
@@ -89,18 +96,41 @@ private:
     bool _loadProfile();
     void _respondWithMavlinkMessage(const mavlink_message_t &message);
     void _processMavlinkCommand(const mavlink_message_t &msg);
+    void _onCommandResponseReceived(const QString &channelName, const QByteArray &bytes);
+
+    /// Sends profile command `name` and, for a MAVLink command, arranges for its ACK.
+    /// Answers QGC at once when the command cannot be delivered, so it never waits out
+    /// a retry cycle for an ACK that is not coming. `mavCommand` 0 means "no ACK wanted".
+    void _sendDeviceCommand(const QString &name, const QVariant &value, uint16_t mavCommand);
+    void _sendCommandAck(uint16_t mavCommand, uint8_t result);
+
+    void _handleManualControl(const mavlink_manual_control_t &control);
+    void _sendJoystickFrame(const QByteArray &frame);
 
     ProtocolProfile                     _profile;
     QScopedPointer<FieldMapper>         _mapper;
     QScopedPointer<MAVLinkSynthesizer>  _synthesizer;
     QScopedPointer<CommandTranslator>   _commandTranslator;
     JsonDatagramCodec                   _codec;
-    NdjsonCodec                         _commandCodec;
 
     UdpProtocolChannel                 *_telemetryChannel = nullptr;
-    TcpProtocolChannel                 *_commandChannel   = nullptr;
-    UdpProtocolChannel                 *_joystickChannel  = nullptr;
+    QHash<QString, ProtocolChannel*>    _outChannels;       ///< every "out" channel, by profile name
+    QHash<QString, NdjsonCodec>         _responseCodecs;    ///< per NDJSON channel, for its replies
+    QHash<QString, uint16_t>            _mavCommandForDeviceCmd;  ///< device "cmd" -> MAV_CMD to ACK
     QTimer                             *_heartbeatTimer   = nullptr;
+
+    ProtocolChannel                    *_joystickChannel  = nullptr;
+    ChannelConfig                       _joystickConfig;
+    QTimer                             *_joystickTimer    = nullptr;
+    QElapsedTimer                       _joystickClock;
+    qint64                              _lastJoystickSendMs = -1;
+    QByteArray                          _pendingJoystickFrame;
+
+    QList<QByteArray>                   _outgoingQueue;     ///< see _respondWithMavlinkMessage
+    bool                                _emittingOutgoing = false;
+
+    uint8_t                             _gcsSysId  = 255;
+    uint8_t                             _gcsCompId = MAV_COMP_ID_MISSIONPLANNER;
 
     uint8_t     _auxChannel = std::numeric_limits<uint8_t>::max();
 
@@ -109,5 +139,4 @@ private:
     bool        _connected   = false;
     quint64     _packetCount = 0;
     bool        _telemetryAlive = false;
-    quint64     _lastJoystickSendTime = 0;
 };

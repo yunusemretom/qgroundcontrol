@@ -264,3 +264,22 @@ void MAVLinkSynthesizerTest::_buildsVfrHudFromMappedValues_test()
     QVERIFY(qFuzzyCompare(decoded.alt, 543.2f));
     QVERIFY(qFuzzyCompare(decoded.climb, 1.2f));
 }
+
+void MAVLinkSynthesizerTest::_heartbeatCarriesProfileMavType_test()
+{
+    QByteArray json = _profileJson();
+    json.replace("MAV_TYPE_GENERIC", "MAV_TYPE_GROUND_ROVER");
+
+    ProtocolProfile profile;
+    QString error;
+    QVERIFY2(profile.loadFromJson(json, &error), qPrintable(error));
+    QCOMPARE(profile.mavTypeName(), QStringLiteral("MAV_TYPE_GROUND_ROVER"));
+
+    MAVLinkSynthesizer synthesizer(profile, 0);
+    const mavlink_message_t heartbeat = synthesizer.buildHeartbeat(0);
+
+    mavlink_heartbeat_t decoded{};
+    mavlink_msg_heartbeat_decode(&heartbeat, &decoded);
+    QCOMPARE(static_cast<int>(decoded.type), static_cast<int>(MAV_TYPE_GROUND_ROVER));
+    QCOMPARE(static_cast<int>(decoded.autopilot), static_cast<int>(MAV_AUTOPILOT_GENERIC));
+}

@@ -36,6 +36,13 @@ private slots:
     void _parsesFlightModeValues_test();
     void _missingOptionalSectionsAreEmpty_test();
     void _shippedCelikKubbeProfileIsValid_test();
+    void _parsesCommandTemplates_test();
+    void _rejectsCommandOnUnknownChannel_test();
+    void _rejectsCommandOnInboundChannel_test();
+    void _rejectsCommandWithoutTemplateObject_test();
+    void _parsesJoystickChannelOptions_test();
+    void _resolvesMavType_test();
+    void _rejectsUnknownMavType_test();
 
 private:
     static QByteArray _minimalProfile();

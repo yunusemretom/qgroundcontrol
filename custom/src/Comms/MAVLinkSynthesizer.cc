@@ -65,7 +65,7 @@ mavlink_message_t MAVLinkSynthesizer::buildHeartbeat(int customMode) const
         static_cast<uint8_t>(_profile.compId()),
         _channel,
         &message,
-        MAV_TYPE_GENERIC,
+        static_cast<uint8_t>(_profile.mavType()),
         MAV_AUTOPILOT_GENERIC,
         MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
         static_cast<uint32_t>(customMode),

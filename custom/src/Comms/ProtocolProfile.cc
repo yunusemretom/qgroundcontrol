@@ -9,6 +9,7 @@
 
 #include "ProtocolProfile.h"
 
+#include "MAVLinkLib.h"
 #include "QGCLoggingCategory.h"
 
 #include <QtCore/QJsonArray>
@@ -47,6 +48,34 @@ static bool parseEndpoint(const QString &endpoint, QString &host, quint16 &port)
     return true;
 }
 
+/// Maps a MAV_TYPE enum name to its value. Kept to the types a bridged device can
+/// plausibly claim; an unknown name is a profile error rather than a silent GENERIC.
+static bool resolveMavType(const QString &name, int &value)
+{
+#define QGC_MAV_TYPE(x) { QStringLiteral(#x), x }
+    static const QHash<QString, int> types = {
+        QGC_MAV_TYPE(MAV_TYPE_GENERIC),          QGC_MAV_TYPE(MAV_TYPE_FIXED_WING),
+        QGC_MAV_TYPE(MAV_TYPE_QUADROTOR),        QGC_MAV_TYPE(MAV_TYPE_COAXIAL),
+        QGC_MAV_TYPE(MAV_TYPE_HELICOPTER),       QGC_MAV_TYPE(MAV_TYPE_ANTENNA_TRACKER),
+        QGC_MAV_TYPE(MAV_TYPE_AIRSHIP),          QGC_MAV_TYPE(MAV_TYPE_FREE_BALLOON),
+        QGC_MAV_TYPE(MAV_TYPE_ROCKET),           QGC_MAV_TYPE(MAV_TYPE_GROUND_ROVER),
+        QGC_MAV_TYPE(MAV_TYPE_SURFACE_BOAT),     QGC_MAV_TYPE(MAV_TYPE_SUBMARINE),
+        QGC_MAV_TYPE(MAV_TYPE_HEXAROTOR),        QGC_MAV_TYPE(MAV_TYPE_OCTOROTOR),
+        QGC_MAV_TYPE(MAV_TYPE_TRICOPTER),        QGC_MAV_TYPE(MAV_TYPE_FLAPPING_WING),
+        QGC_MAV_TYPE(MAV_TYPE_KITE),             QGC_MAV_TYPE(MAV_TYPE_ONBOARD_CONTROLLER),
+        QGC_MAV_TYPE(MAV_TYPE_GIMBAL),           QGC_MAV_TYPE(MAV_TYPE_CAMERA),
+        QGC_MAV_TYPE(MAV_TYPE_CHARGING_STATION), QGC_MAV_TYPE(MAV_TYPE_SERVO),
+    };
+#undef QGC_MAV_TYPE
+
+    const auto it = types.constFind(name);
+    if (it == types.constEnd()) {
+        return false;
+    }
+    value = it.value();
+    return true;
+}
+
 bool ProtocolProfile::loadFromJson(const QByteArray &json, QString *errorString)
 {
     *this = ProtocolProfile();
@@ -70,6 +99,9 @@ bool ProtocolProfile::loadFromJson(const QByteArray &json, QString *errorString)
 
     const QJsonObject vehicle = root.value(QStringLiteral("vehicle")).toObject();
     _mavTypeName = vehicle.value(QStringLiteral("mavType")).toString(QStringLiteral("MAV_TYPE_GENERIC"));
+    if (!resolveMavType(_mavTypeName, _mavType)) {
+        return _fail(errorString, QStringLiteral("vehicle.mavType: unknown type \"%1\"").arg(_mavTypeName));
+    }
     _sysId       = vehicle.value(QStringLiteral("sysId")).toInt(1);
     _compId      = vehicle.value(QStringLiteral("compId")).toInt(1);
     _heartbeatHz = vehicle.value(QStringLiteral("heartbeatHz")).toInt(1);
@@ -92,6 +124,9 @@ bool ProtocolProfile::loadFromJson(const QByteArray &json, QString *errorString)
         channel.codec       = source.value(QStringLiteral("codec")).toString();
         channel.timeoutMs   = source.value(QStringLiteral("timeoutMs")).toInt(0);
         channel.reconnectMs = source.value(QStringLiteral("reconnectMs")).toInt(0);
+        channel.rateHz      = qMax(0, source.value(QStringLiteral("rateHz")).toInt(0));
+        channel.frameTemplate = source.value(QStringLiteral("template")).toString();
+        channel.failsafe    = source.value(QStringLiteral("failsafe")).toString();
 
         if ((channel.direction != QLatin1String("in")) && (channel.direction != QLatin1String("out"))) {
             return _fail(errorString, QStringLiteral("Channel \"%1\": dir must be \"in\" or \"out\"").arg(it.key()));
@@ -168,6 +203,29 @@ bool ProtocolProfile::loadFromJson(const QByteArray &json, QString *errorString)
     const QJsonObject modeValues = flightMode.value(QStringLiteral("values")).toObject();
     for (auto it = modeValues.constBegin(); it != modeValues.constEnd(); ++it) {
         _flightModeValues.insert(it.key(), it.value().toInt());
+    }
+
+    if (root.contains(QStringLiteral("commands"))) {
+        _hasCommandSection = true;
+        const QJsonObject commands = root.value(QStringLiteral("commands")).toObject();
+        for (auto it = commands.constBegin(); it != commands.constEnd(); ++it) {
+            const QJsonObject source = it.value().toObject();
+
+            CommandTemplate command;
+            command.channel = source.value(QStringLiteral("channel")).toString();
+            const ChannelConfig target = _channels.value(command.channel);
+            if (!target.valid) {
+                return _fail(errorString, QStringLiteral("Command \"%1\": channel \"%2\" is not declared").arg(it.key(), command.channel));
+            }
+            if (target.direction != QLatin1String("out")) {
+                return _fail(errorString, QStringLiteral("Command \"%1\": channel \"%2\" is not an outgoing channel").arg(it.key(), command.channel));
+            }
+            if (!source.value(QStringLiteral("template")).isObject()) {
+                return _fail(errorString, QStringLiteral("Command \"%1\": template must be a JSON object").arg(it.key()));
+            }
+            command.payload = source.value(QStringLiteral("template")).toObject();
+            _commands.insert(it.key(), command);
+        }
     }
 
     _valid = true;

@@ -23,4 +23,10 @@ private slots:
 
     void _heartbeatResumesAfterTelemetryTimeout_test();
     void _synthesizedMessagesKeepTheirOwnSequence_test();
+    void _joystickUsesProfileTemplate_test();
+    void _joystickSendsLatestValueAfterRateLimit_test();
+    void _joystickSendsProfileFailsafeOnDisconnect_test();
+    void _unsupportedCommandIsRejected_test();
+    void _armWithoutCommandChannelFails_test();
+    void _armRoundTripsThroughDevice_test();
 };

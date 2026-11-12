@@ -11,6 +11,7 @@
 #pragma once
 
 #include <QtCore/QHash>
+#include <QtCore/QJsonObject>
 #include <QtCore/QLoggingCategory>
 #include <QtCore/QMap>
 #include <QtCore/QString>
@@ -50,7 +51,18 @@ struct ChannelConfig
     QString codec;
     int     timeoutMs   = 0;
     int     reconnectMs = 0;
+    int     rateHz      = 0;            ///< max outgoing frames per second, 0 = unlimited
+    QString frameTemplate;              ///< text frame layout, e.g. "{pitch:.3f},{yaw:.3f}"
+    QString failsafe;                   ///< frame sent when the channel closes
     bool    valid       = false;
+};
+
+/// One outgoing command: which channel it goes to and the JSON it is built from.
+/// String values equal to or containing "{value}" are substituted at send time.
+struct CommandTemplate
+{
+    QString     channel;
+    QJsonObject payload;
 };
 
 /// Parsed, validated protocol profile. Pure data: knows nothing about sockets or MAVLink.
@@ -69,6 +81,7 @@ public:
     int     schemaVersion() const { return _schemaVersion; }
 
     QString mavTypeName() const { return _mavTypeName; }
+    int     mavType() const { return _mavType; }       ///< numeric MAV_TYPE resolved from mavTypeName
     int     sysId() const { return _sysId; }
     int     compId() const { return _compId; }
     int     heartbeatHz() const { return _heartbeatHz; }
@@ -88,6 +101,11 @@ public:
     QString          flightModeField() const { return _flightModeField; }
     QMap<QString,int> flightModeValues() const { return _flightModeValues; }
 
+    /// True when the profile has a "commands" section. Without one, callers fall back to
+    /// their built-in command shapes; with one, only the commands it lists exist.
+    bool hasCommandSection() const { return _hasCommandSection; }
+    QHash<QString, CommandTemplate> commands() const { return _commands; }
+
 private:
     bool _fail(QString *errorString, const QString &reason);
 
@@ -95,6 +113,7 @@ private:
     QString _name;
     int     _schemaVersion  = 0;
     QString _mavTypeName    = QStringLiteral("MAV_TYPE_GENERIC");
+    int     _mavType        = 0;
     int     _sysId          = 1;
     int     _compId         = 1;
     int     _heartbeatHz    = 1;
@@ -106,4 +125,6 @@ private:
     QStringList                  _passthrough;
     QString                      _flightModeField;
     QMap<QString, int>           _flightModeValues;
+    bool                         _hasCommandSection = false;
+    QHash<QString, CommandTemplate> _commands;
 };

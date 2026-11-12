@@ -20,4 +20,8 @@ public:
 
 private slots:
     void _formatsJoystickCsv_test();
+    void _formatsTemplateWithPrecision_test();
+    void _formatsTemplateWithoutPrecision_test();
+    void _templateKeepsUnknownPlaceholderVisible_test();
+    void _terminatesFrameWithNewlineOnce_test();
 };

@@ -19,8 +19,9 @@ void TurretFirmwarePlugin::updateAvailableFlightModes(FlightModeList &flightMode
     flightModeList.clear();
 
     // Keep these in step with telemetry.flightMode.values in celik-kubbe.json.
-    // canBeSet is false: Stage A is receive-only, so the operator cannot command a
-    // mode change yet. Stage B flips these on once the command channel exists.
+    // The plugin is shared by every generic-autopilot vehicle and is not told which link
+    // a vehicle came from, so it cannot read the profile itself. Selecting a mode sends
+    // SET_MODE, which ExternalProtocolLink turns into the profile's "setMode" command.
     static const struct {
         const char *name;
         uint32_t    customMode;

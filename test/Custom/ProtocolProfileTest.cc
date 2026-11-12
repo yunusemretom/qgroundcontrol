@@ -306,3 +306,104 @@ void ProtocolProfileTest::_shippedCelikKubbeProfileIsValid_test()
     QVERIFY(passthrough.contains(QStringLiteral("altitude")));
     QVERIFY(passthrough.contains(QStringLiteral("speed")));
 }
+
+/// Builds a profile with a telemetry channel plus whatever extra channels/commands a test
+/// needs, so each test only spells out the part it is about.
+static QByteArray profileWith(const QByteArray &extraChannels, const QByteArray &commands,
+                              const QByteArray &mavType = QByteArrayLiteral("MAV_TYPE_GENERIC"))
+{
+    return QByteArrayLiteral(R"({
+        "name": "Cmd", "vehicle": { "mavType": ")") + mavType + QByteArrayLiteral(R"(" },
+        "channels": {
+            "telemetry": { "dir": "in", "transport": "udp", "bind": "0.0.0.0:5001", "codec": "json-datagram" })")
+        + extraChannels + QByteArrayLiteral(R"(
+        },
+        "telemetry": { "source": "telemetry", "mavlink": {} })")
+        + (commands.isEmpty() ? QByteArray() : (QByteArrayLiteral(R"(, "commands": )") + commands))
+        + QByteArrayLiteral("}");
+}
+
+static const QByteArray kCommandChannel = QByteArrayLiteral(R"(,
+    "command": { "dir": "out", "transport": "tcp", "connect": "127.0.0.1:5000", "codec": "ndjson" })");
+
+void ProtocolProfileTest::_parsesCommandTemplates_test()
+{
+    ProtocolProfile profile;
+    QString error;
+    QVERIFY2(profile.loadFromJson(profileWith(kCommandChannel, R"({
+        "arm":     { "channel": "command", "template": { "cmd": "arm", "params": {} } },
+        "setMode": { "channel": "command", "template": { "cmd": "set_mode", "params": { "mode": "{value}" } } }
+    })"), &error), qPrintable(error));
+
+    QVERIFY(profile.hasCommandSection());
+    QCOMPARE(profile.commands().size(), 2);
+    const CommandTemplate setMode = profile.commands().value(QStringLiteral("setMode"));
+    QCOMPARE(setMode.channel, QStringLiteral("command"));
+    QCOMPARE(setMode.payload.value(QStringLiteral("cmd")).toString(), QStringLiteral("set_mode"));
+    QCOMPARE(setMode.payload.value(QStringLiteral("params")).toObject().value(QStringLiteral("mode")).toString(),
+             QStringLiteral("{value}"));
+}
+
+void ProtocolProfileTest::_rejectsCommandOnUnknownChannel_test()
+{
+    ProtocolProfile profile;
+    QString error;
+    QVERIFY(!profile.loadFromJson(profileWith(kCommandChannel, R"({
+        "arm": { "channel": "nowhere", "template": { "cmd": "arm" } }
+    })"), &error));
+    QVERIFY(error.contains(QStringLiteral("nowhere")));
+}
+
+void ProtocolProfileTest::_rejectsCommandOnInboundChannel_test()
+{
+    ProtocolProfile profile;
+    QString error;
+    QVERIFY(!profile.loadFromJson(profileWith(kCommandChannel, R"({
+        "arm": { "channel": "telemetry", "template": { "cmd": "arm" } }
+    })"), &error));
+    QVERIFY(error.contains(QStringLiteral("arm")));
+}
+
+void ProtocolProfileTest::_rejectsCommandWithoutTemplateObject_test()
+{
+    ProtocolProfile profile;
+    QString error;
+    QVERIFY(!profile.loadFromJson(profileWith(kCommandChannel, R"({
+        "arm": { "channel": "command", "template": "arm" }
+    })"), &error));
+    QVERIFY(error.contains(QStringLiteral("template")));
+}
+
+void ProtocolProfileTest::_parsesJoystickChannelOptions_test()
+{
+    ProtocolProfile profile;
+    QString error;
+    QVERIFY2(profile.loadFromJson(profileWith(QByteArrayLiteral(R"(,
+        "joystick": { "dir": "out", "transport": "udp", "connect": "127.0.0.1:5005", "codec": "csv",
+                      "rateHz": 25, "template": "{pitch:.2f};{yaw:.2f}", "failsafe": "0;0" })"), QByteArray()), &error),
+             qPrintable(error));
+
+    QVERIFY(!profile.hasCommandSection());
+    const ChannelConfig joystick = profile.channel(QStringLiteral("joystick"));
+    QCOMPARE(joystick.rateHz, 25);
+    QCOMPARE(joystick.frameTemplate, QStringLiteral("{pitch:.2f};{yaw:.2f}"));
+    QCOMPARE(joystick.failsafe, QStringLiteral("0;0"));
+}
+
+void ProtocolProfileTest::_resolvesMavType_test()
+{
+    ProtocolProfile profile;
+    QVERIFY(profile.loadFromJson(profileWith(QByteArray(), QByteArray(), QByteArrayLiteral("MAV_TYPE_GROUND_ROVER")), nullptr));
+    QCOMPARE(profile.mavType(), 10);    // MAV_TYPE_GROUND_ROVER
+
+    QVERIFY(profile.loadFromJson(_minimalProfile(), nullptr));
+    QCOMPARE(profile.mavType(), 0);     // MAV_TYPE_GENERIC
+}
+
+void ProtocolProfileTest::_rejectsUnknownMavType_test()
+{
+    ProtocolProfile profile;
+    QString error;
+    QVERIFY(!profile.loadFromJson(profileWith(QByteArray(), QByteArray(), QByteArrayLiteral("MAV_TYPE_TOASTER")), &error));
+    QVERIFY(error.contains(QStringLiteral("MAV_TYPE_TOASTER")));
+}

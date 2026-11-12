@@ -21,6 +21,7 @@ public:
 private slots:
     void _heartbeatCarriesProfileIdentity_test();
     void _heartbeatCarriesCustomMode_test();
+    void _heartbeatCarriesProfileMavType_test();
     void _buildsGlobalPositionFromMappedValues_test();
     void _buildsAttitudeFromMappedValues_test();
     void _omittedFieldKeepsPreviousValue_test();

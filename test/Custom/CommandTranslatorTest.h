@@ -22,4 +22,12 @@ private slots:
     void _translatesArmAndDisarm_test();
     void _translatesSetMode_test();
     void _parsesAckResponse_test();
+    void _usesProfileTemplate_test();
+    void _substitutesValuePlaceholder_test();
+    void _addsIncrementingIdAndTimestamp_test();
+    void _keepsIdAndTimestampFromTemplate_test();
+    void _matchesAckById_test();
+    void _reportsFailedAckStatus_test();
+    void _omittedCommandIsUnsupported_test();
+    void _routesCommandToItsChannel_test();
 };

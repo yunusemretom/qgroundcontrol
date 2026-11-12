@@ -64,17 +64,11 @@ QVariantList ExternalProtocolLink::channelStates() const
     for (const QString &name : names) {
         const ChannelConfig config = _profile.channel(name);
 
-        // Only the three channels the link actually instantiates can report open/closed;
-        // anything else the profile declares is listed as not open rather than hidden,
-        // so a mis-declared channel is visible instead of silently absent.
-        const ProtocolChannel *channel = nullptr;
-        if (name == _profile.telemetrySourceChannel()) {
-            channel = _telemetryChannel;
-        } else if (name == QLatin1String("command")) {
-            channel = _commandChannel;
-        } else if (name == QLatin1String("joystick")) {
-            channel = _joystickChannel;
-        }
+        // Inbound channels other than the telemetry source are not opened; they are listed
+        // as not open rather than hidden, so a mis-declared channel is visible.
+        const ProtocolChannel *channel = (name == _profile.telemetrySourceChannel())
+                ? static_cast<const ProtocolChannel*>(_telemetryChannel)
+                : _outChannels.value(name, nullptr);
 
         QVariantMap entry;
         entry.insert(QStringLiteral("name"), name);
@@ -127,6 +121,10 @@ bool ExternalProtocolLink::_connect()
     _commandTranslator.reset(new CommandTranslator(_profile));
 
     const ChannelConfig telemetryConfig = _profile.channel(_profile.telemetrySourceChannel());
+    if (telemetryConfig.transport != QLatin1String("udp")) {
+        qCWarning(ExternalProtocolLinkLog) << "Telemetry source must be a UDP channel, got" << telemetryConfig.transport;
+        return false;
+    }
     _telemetryChannel = new UdpProtocolChannel(telemetryConfig, this);
 
     (void) connect(_telemetryChannel, &ProtocolChannel::framesReceived,
@@ -140,20 +138,51 @@ bool ExternalProtocolLink::_connect()
         return false;
     }
 
-    // Optional Command Channel (TCP)
-    const ChannelConfig commandConfig = _profile.channel(QStringLiteral("command"));
-    if (commandConfig.valid) {
-        _commandChannel = new TcpProtocolChannel(commandConfig, this);
-        (void) connect(_commandChannel, &ProtocolChannel::framesReceived,
-                       this, &ExternalProtocolLink::_onCommandResponseReceived);
-        _commandChannel->open();
+    const QStringList channelNames = _profile.channelNames();
+    for (const QString &name : channelNames) {
+        const ChannelConfig channelConfig = _profile.channel(name);
+        if ((name == _profile.telemetrySourceChannel()) || (channelConfig.direction != QLatin1String("out"))) {
+            continue;
+        }
+
+        ProtocolChannel *channel = nullptr;
+        if (channelConfig.transport == QLatin1String("tcp")) {
+            channel = new TcpProtocolChannel(channelConfig, this);
+        } else {
+            channel = new UdpProtocolChannel(channelConfig, this);
+        }
+
+        // Command channels answer with NDJSON ACKs; listen on each one separately so a
+        // partial line on one never mixes with another's.
+        if (channelConfig.codec == QLatin1String("ndjson")) {
+            _responseCodecs.insert(name, NdjsonCodec());
+            (void) connect(channel, &ProtocolChannel::framesReceived, this, [this, name](const QByteArray &bytes) {
+                _onCommandResponseReceived(name, bytes);
+            });
+        }
+
+        // A TCP channel that cannot connect yet keeps retrying on its own; it is not a
+        // reason to refuse the link.
+        (void) channel->open();
+        _outChannels.insert(name, channel);
     }
 
-    // Optional Joystick Channel (UDP)
-    const ChannelConfig joystickConfig = _profile.channel(QStringLiteral("joystick"));
-    if (joystickConfig.valid) {
-        _joystickChannel = new UdpProtocolChannel(joystickConfig, this);
-        _joystickChannel->open();
+    _joystickChannel = _outChannels.value(QStringLiteral("joystick"), nullptr);
+    if (!_joystickChannel) {
+        for (auto it = _outChannels.constBegin(); it != _outChannels.constEnd(); ++it) {
+            if (_profile.channel(it.key()).codec == QLatin1String("csv")) {
+                _joystickChannel = it.value();
+                break;
+            }
+        }
+    }
+    if (_joystickChannel) {
+        _joystickConfig = _joystickChannel->config();
+        _joystickClock.start();
+        _lastJoystickSendMs = -1;
+        _joystickTimer = new QTimer(this);
+        _joystickTimer->setSingleShot(true);
+        (void) connect(_joystickTimer, &QTimer::timeout, this, &ExternalProtocolLink::_flushPendingJoystickFrame);
     }
 
     _heartbeatTimer = new QTimer(this);
@@ -175,19 +204,29 @@ void ExternalProtocolLink::disconnect()
         _heartbeatTimer = nullptr;
     }
 
+    if (_joystickTimer) {
+        _joystickTimer->stop();
+        delete _joystickTimer;
+        _joystickTimer = nullptr;
+    }
+    _pendingJoystickFrame.clear();
+
     if (_joystickChannel) {
-        // Send failsafe stop packet before closing
-        _joystickChannel->send("0.000,0.000,0,0\n");
-        _joystickChannel->close();
-        delete _joystickChannel;
+        // Last word to the hardware before the channel goes: stop moving, stop firing.
+        const QString failsafe = _joystickConfig.failsafe.isEmpty()
+                ? QStringLiteral("0.000,0.000,0,0")
+                : _joystickConfig.failsafe;
+        (void) _joystickChannel->send(CsvCodec::terminate(failsafe));
         _joystickChannel = nullptr;
     }
 
-    if (_commandChannel) {
-        _commandChannel->close();
-        delete _commandChannel;
-        _commandChannel = nullptr;
+    for (ProtocolChannel *channel : std::as_const(_outChannels)) {
+        channel->close();
+        delete channel;
     }
+    _outChannels.clear();
+    _responseCodecs.clear();
+    _mavCommandForDeviceCmd.clear();
 
     if (_telemetryChannel) {
         _telemetryChannel->close();
@@ -221,78 +260,183 @@ void ExternalProtocolLink::_writeBytes(const QByteArray &bytes)
 
 void ExternalProtocolLink::_processMavlinkCommand(const mavlink_message_t &msg)
 {
-    if (msg.msgid == MAVLINK_MSG_ID_COMMAND_LONG) {
+    switch (msg.msgid) {
+    case MAVLINK_MSG_ID_COMMAND_LONG: {
         mavlink_command_long_t cmd{};
         mavlink_msg_command_long_decode(&msg, &cmd);
+        _gcsSysId  = msg.sysid;
+        _gcsCompId = msg.compid;
 
-        if (cmd.command == MAV_CMD_COMPONENT_ARM_DISARM && _commandChannel && _commandTranslator) {
+        if (cmd.command == MAV_CMD_COMPONENT_ARM_DISARM) {
             const bool arm = (cmd.param1 == 1.0f);
-            const QJsonObject jsonCmd = _commandTranslator->translateArm(arm);
-            const QByteArray encoded = _commandCodec.encode(jsonCmd);
-            _commandChannel->send(encoded);
-            qCDebug(ExternalProtocolLinkLog) << "Sent Arm/Disarm command to turret:" << encoded.trimmed();
+            _sendDeviceCommand(arm ? QStringLiteral("arm") : QStringLiteral("disarm"), QVariant(), cmd.command);
+        } else if (cmd.command == MAV_CMD_DO_SET_MODE) {
+            const QString modeName = _profile.flightModeValues().key(static_cast<int>(cmd.param2));
+            if (modeName.isEmpty()) {
+                _sendCommandAck(cmd.command, MAV_RESULT_DENIED);
+            } else {
+                _sendDeviceCommand(QStringLiteral("setMode"), modeName, cmd.command);
+            }
+        } else {
+            _sendCommandAck(cmd.command, MAV_RESULT_UNSUPPORTED);
         }
-    } else if (msg.msgid == MAVLINK_MSG_ID_SET_MODE) {
+        break;
+    }
+    case MAVLINK_MSG_ID_COMMAND_INT: {
+        mavlink_command_int_t cmd{};
+        mavlink_msg_command_int_decode(&msg, &cmd);
+        _gcsSysId  = msg.sysid;
+        _gcsCompId = msg.compid;
+        _sendCommandAck(cmd.command, MAV_RESULT_UNSUPPORTED);
+        break;
+    }
+    case MAVLINK_MSG_ID_SET_MODE: {
+        // QGC changes modes with SET_MODE, which has no ACK of its own; the new mode shows
+        // up in telemetry once the device has switched.
         mavlink_set_mode_t sm{};
         mavlink_msg_set_mode_decode(&msg, &sm);
-
-        QString modeName;
-        const auto modeMap = _profile.flightModeValues();
-        for (auto it = modeMap.constBegin(); it != modeMap.constEnd(); ++it) {
-            if (it.value() == static_cast<int>(sm.custom_mode)) {
-                modeName = it.key();
-                break;
-            }
+        const QString modeName = _profile.flightModeValues().key(static_cast<int>(sm.custom_mode));
+        if (!modeName.isEmpty()) {
+            _sendDeviceCommand(QStringLiteral("setMode"), modeName, 0);
         }
-
-        if (!modeName.isEmpty() && _commandChannel && _commandTranslator) {
-            const QJsonObject jsonCmd = _commandTranslator->translateSetMode(modeName);
-            const QByteArray encoded = _commandCodec.encode(jsonCmd);
-            _commandChannel->send(encoded);
-            qCDebug(ExternalProtocolLinkLog) << "Sent SetMode command to turret:" << modeName << encoded.trimmed();
-        }
-    } else if (msg.msgid == MAVLINK_MSG_ID_MANUAL_CONTROL && _joystickChannel) {
-        mavlink_manual_control_t mc{};
-        mavlink_msg_manual_control_decode(&msg, &mc);
-
-        const quint64 now = QDateTime::currentMSecsSinceEpoch();
-        if ((now - _lastJoystickSendTime) >= 20) { // 50 Hz rate limit
-            _lastJoystickSendTime = now;
-            const double pitch = mc.x / 1000.0;
-            const double yaw   = mc.r / 1000.0;
-            const bool fire    = (mc.buttons & 1) != 0;
-            const bool arm     = (mc.buttons & 2) != 0;
-
-            const QByteArray csv = CsvCodec::formatJoystick(pitch, yaw, fire, arm);
-            _joystickChannel->send(csv);
-        }
+        break;
+    }
+    case MAVLINK_MSG_ID_MANUAL_CONTROL: {
+        mavlink_manual_control_t control{};
+        mavlink_msg_manual_control_decode(&msg, &control);
+        _handleManualControl(control);
+        break;
+    }
+    default:
+        break;
     }
 }
 
-void ExternalProtocolLink::_onCommandResponseReceived(const QByteArray &bytes)
+void ExternalProtocolLink::_sendDeviceCommand(const QString &name, const QVariant &value, uint16_t mavCommand)
 {
-    const QList<QJsonObject> responses = _commandCodec.decode(bytes);
+    if (!_commandTranslator || !_commandTranslator->isSupported(name)) {
+        qCDebug(ExternalProtocolLinkLog) << "Profile has no command" << name;
+        if (mavCommand) {
+            _sendCommandAck(mavCommand, MAV_RESULT_UNSUPPORTED);
+        }
+        return;
+    }
+
+    const QString channelName = _commandTranslator->channelFor(name);
+    ProtocolChannel *const channel = _outChannels.value(channelName, nullptr);
+    if (!channel || !channel->isOpen()) {
+        qCWarning(ExternalProtocolLinkLog) << "Command" << name << "dropped: channel" << channelName << "is not open";
+        if (mavCommand) {
+            _sendCommandAck(mavCommand, MAV_RESULT_FAILED);
+        }
+        return;
+    }
+
+    const QJsonObject payload = _commandTranslator->translate(name, value);
+    const QByteArray encoded = NdjsonCodec().encode(payload);
+    if (!channel->send(encoded)) {
+        qCWarning(ExternalProtocolLinkLog) << "Command" << name << "could not be written to" << channelName;
+        if (mavCommand) {
+            _sendCommandAck(mavCommand, MAV_RESULT_FAILED);
+        }
+        return;
+    }
+
+    if (mavCommand) {
+        _mavCommandForDeviceCmd.insert(payload.value(QStringLiteral("cmd")).toString(name), mavCommand);
+    }
+    qCDebug(ExternalProtocolLinkLog) << "Sent" << name << "on" << channelName << encoded.trimmed();
+}
+
+void ExternalProtocolLink::_sendCommandAck(uint16_t mavCommand, uint8_t result)
+{
+    mavlink_message_t ackMsg{};
+    (void) mavlink_msg_command_ack_pack_chan(
+        static_cast<uint8_t>(_profile.sysId()), static_cast<uint8_t>(_profile.compId()), _auxChannel, &ackMsg,
+        mavCommand, result, 100, 0, _gcsSysId, _gcsCompId);
+    _respondWithMavlinkMessage(ackMsg);
+}
+
+void ExternalProtocolLink::_handleManualControl(const mavlink_manual_control_t &control)
+{
+    if (!_joystickChannel) {
+        return;
+    }
+
+    const double pitch = control.x / 1000.0;
+    const double yaw   = control.r / 1000.0;
+    const bool   fire  = (control.buttons & 1) != 0;
+    const bool   arm   = (control.buttons & 2) != 0;
+
+    const QByteArray frame = _joystickConfig.frameTemplate.isEmpty()
+            ? CsvCodec::formatJoystick(pitch, yaw, fire, arm)
+            : CsvCodec::formatTemplate(_joystickConfig.frameTemplate, {
+                  { QStringLiteral("pitch"), pitch },
+                  { QStringLiteral("yaw"),   yaw },
+                  { QStringLiteral("fire"),  fire ? 1 : 0 },
+                  { QStringLiteral("arm"),   arm ? 1 : 0 },
+              });
+
+    const int rateHz = (_joystickConfig.rateHz > 0) ? _joystickConfig.rateHz : 50;
+    const qint64 intervalMs = qMax(1, 1000 / rateHz);
+    const qint64 now = _joystickClock.elapsed();
+    const qint64 sinceLast = (_lastJoystickSendMs < 0) ? intervalMs : (now - _lastJoystickSendMs);
+
+    if (sinceLast >= intervalMs) {
+        _pendingJoystickFrame.clear();
+        _joystickTimer->stop();
+        _sendJoystickFrame(frame);
+        return;
+    }
+
+    // Too soon: hold the newest frame and send it when the slot opens, so the last
+    // stick position — typically "centred" — is never the one that gets dropped.
+    _pendingJoystickFrame = frame;
+    if (!_joystickTimer->isActive()) {
+        _joystickTimer->start(static_cast<int>(intervalMs - sinceLast));
+    }
+}
+
+void ExternalProtocolLink::_flushPendingJoystickFrame()
+{
+    if (!_pendingJoystickFrame.isEmpty()) {
+        const QByteArray frame = _pendingJoystickFrame;
+        _pendingJoystickFrame.clear();
+        _sendJoystickFrame(frame);
+    }
+}
+
+void ExternalProtocolLink::_sendJoystickFrame(const QByteArray &frame)
+{
+    if (_joystickChannel) {
+        (void) _joystickChannel->send(frame);
+        _lastJoystickSendMs = _joystickClock.elapsed();
+    }
+}
+
+void ExternalProtocolLink::_onCommandResponseReceived(const QString &channelName, const QByteArray &bytes)
+{
+    auto codec = _responseCodecs.find(channelName);
+    if (codec == _responseCodecs.end() || !_commandTranslator) {
+        return;
+    }
+
+    const QList<QJsonObject> responses = codec->decode(bytes);
     for (const QJsonObject &resp : responses) {
         QString cmdName;
         bool success = false;
-        if (_commandTranslator->parseAck(resp, cmdName, success)) {
-            qCDebug(ExternalProtocolLinkLog) << "Received ACK for:" << cmdName << "status:" << success;
-
-            uint16_t mavCmd = MAV_CMD_COMPONENT_ARM_DISARM;
-            if (cmdName == QLatin1String("arm") || cmdName == QLatin1String("disarm")) {
-                mavCmd = MAV_CMD_COMPONENT_ARM_DISARM;
-            } else if (cmdName == QLatin1String("set_mode")) {
-                mavCmd = MAV_CMD_DO_SET_MODE;
-            }
-
-            mavlink_message_t ackMsg;
-            mavlink_msg_command_ack_pack_chan(
-                _profile.sysId(), _profile.compId(), _auxChannel, &ackMsg,
-                mavCmd, success ? MAV_RESULT_ACCEPTED : MAV_RESULT_FAILED,
-                100, 0, 0, 0
-            );
-            _respondWithMavlinkMessage(ackMsg);
+        if (!_commandTranslator->parseAck(resp, cmdName, success)) {
+            continue;
         }
+
+        const auto mavCommand = _mavCommandForDeviceCmd.constFind(cmdName);
+        if (mavCommand == _mavCommandForDeviceCmd.constEnd()) {
+            qCDebug(ExternalProtocolLinkLog) << "ACK for a command QGC did not send:" << cmdName;
+            continue;
+        }
+
+        qCDebug(ExternalProtocolLinkLog) << "Received ACK for:" << cmdName << "status:" << success;
+        _sendCommandAck(mavCommand.value(), success ? MAV_RESULT_ACCEPTED : MAV_RESULT_FAILED);
     }
 }
 
@@ -300,7 +444,21 @@ void ExternalProtocolLink::_respondWithMavlinkMessage(const mavlink_message_t &m
 {
     uint8_t buffer[MAVLINK_MAX_PACKET_LEN]{};
     const int length = mavlink_msg_to_send_buffer(buffer, &message);
-    emit bytesReceived(this, QByteArray(reinterpret_cast<char*>(buffer), length));
+    _outgoingQueue.append(QByteArray(reinterpret_cast<char*>(buffer), length));
+
+    // QGC handles bytesReceived synchronously and may answer inside that handler (a new
+    // vehicle's first heartbeat triggers requests), which re-enters _writeBytes and makes
+    // us emit again before the outer emit has reached every listener. Later listeners
+    // would then see messages out of sequence order. Queue nested emissions and let the
+    // outermost call drain them, so delivery order always matches sequence order.
+    if (_emittingOutgoing) {
+        return;
+    }
+    _emittingOutgoing = true;
+    while (!_outgoingQueue.isEmpty()) {
+        emit bytesReceived(this, _outgoingQueue.takeFirst());
+    }
+    _emittingOutgoing = false;
 }
 
 void ExternalProtocolLink::_sendHeartbeat()
