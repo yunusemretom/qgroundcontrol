@@ -22,7 +22,7 @@ endif()
 CPMAddPackage(
     NAME zlib
     GITHUB_REPOSITORY madler/zlib
-    GIT_TAG develop
+    GIT_TAG f9dd6009be3ed32415edf1e89d1bc38380ecb95d # develop as of 2026-03-26; pinned so builds are reproducible
     OPTIONS
         "ZLIB_BUILD_TESTING OFF"
         "ZLIB_BUILD_SHARED OFF"
